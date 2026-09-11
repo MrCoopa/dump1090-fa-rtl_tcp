@@ -1,5 +1,5 @@
 # --- Stage 1: Build ---
-FROM debian:bookworm-slim AS builder
+FROM debian:trixie-slim AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -19,7 +19,7 @@ RUN make clean && \
     strip /src/dump1090 /src/view1090
 
 # --- Stage 2: Runtime ---
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     librtlsdr0 \

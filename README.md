@@ -8,7 +8,7 @@
 > **Fork Information:**  
 > This project is a specialized fork of FlightAware's official [dump1090 repository](https://github.com/flightaware/dump1090) (`dump1090-fa`).  
 > 
-> **Branch: `debian`** (Standard Debian Bookworm base image with `glibc`).  
+> **Branch: `debian`** (Debian 13 Trixie base image with `glibc` and GCC 14).  
 > If you prefer the ultra-minimalist Alpine build (37 MB image, ~4 MB RAM), check out the [`main` branch](https://github.com/MrCoopa/dump1090-fa-rtl_tcp/tree/main).
 > 
 > **What this fork adds over upstream `dump1090-fa`:**
