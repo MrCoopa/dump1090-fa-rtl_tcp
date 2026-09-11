@@ -36,10 +36,10 @@ services:
       - "30005:30005" # Beast Binary Output
       - "30002:30002" # Raw Output
     environment:
-      - RTL_TCP_IP=192.168.2.195   # RTL-TCP Server IP
+      - RTL_TCP_IP=192.168.1.100   # RTL-TCP Server IP
       - RTL_TCP_PORT=1234          # RTL-TCP Server Port
-      - LAT=50.1887                # Receiver Latitude
-      - LON=8.1244                 # Receiver Longitude
+      - LAT=52.5200                # Receiver Latitude
+      - LON=13.4050                # Receiver Longitude
       - GAIN=max                   # Tuner Gain (max, auto, or dB value)
       - AGGRESSIVE=true            # 2-bit CRC error correction (--fix-2bit)
 ```

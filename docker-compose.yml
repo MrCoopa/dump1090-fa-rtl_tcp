@@ -11,10 +11,10 @@ services:
       - "30005:30005" # Beast Binary Port
       - "30002:30002" # Raw Output Port
     environment:
-      - RTL_TCP_IP=192.168.2.195   # IP des RTL-TCP-Servers
+      - RTL_TCP_IP=192.168.1.100   # IP des RTL-TCP-Servers
       - RTL_TCP_PORT=1234          # Port des RTL-TCP-Servers (Standard: 1234)
-      - LAT=50.1887                # Hohenstein Steckenroth
-      - LON=8.1244                 # Hohenstein Steckenroth
+      - LAT=52.5200                # Empfänger-Breitengrad (optional)
+      - LON=13.4050                # Empfänger-Längengrad (optional)
       - GAIN=max                   # max, auto oder Wert in dB (z.B. 49.6)
       - PPM=0                      # Frequenzkorrektur in PPM
       - AGGRESSIVE=true            # Aktiviert den 2-Bit CRC Korrekturmodus (--fix-2bit)
