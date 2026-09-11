@@ -6,7 +6,8 @@ RUN apk add --no-cache \
     pkgconf \
     librtlsdr-dev \
     libusb-compat-dev \
-    ncurses-dev
+    ncurses-dev \
+    linux-headers
 
 WORKDIR /src
 COPY . /src

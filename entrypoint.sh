@@ -25,8 +25,11 @@ if [ -n "$RTL_TARGET_IP" ]; then
             ARGS="$ARGS --device-type rtltcp --net-rtl-tcp ${RTL_TARGET_IP}:${RTL_TARGET_PORT}"
             ;;
     esac
-elif [ -n "$DEVICE_INDEX" ]; then
-    ARGS="$ARGS --device-type rtlsdr --device $DEVICE_INDEX"
+else
+    ARGS="$ARGS --device-type rtlsdr"
+    if [ -n "$DEVICE_INDEX" ]; then
+        ARGS="$ARGS --device $DEVICE_INDEX"
+    fi
 fi
 
 # Gain configuration
