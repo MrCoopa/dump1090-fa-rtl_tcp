@@ -16,6 +16,42 @@ it can be used to contribute crowd-sourced flight tracking data to FlightAware.
 It is designed to build as a Debian package, but should also be buildable on
 many other Linux or Unix-like systems.
 
+## 🐳 Docker & RTL-TCP Support
+
+This fork adds native **RTL-TCP network client support** and ready-to-run **Docker & Docker Compose** integration including the **SkyAware Web Map** on port `8080`.
+
+### Quick Start with Docker Compose
+
+1. Configure your settings in `docker-compose.yml`:
+```yaml
+services:
+  dump1090:
+    build: .
+    image: dump1090-fa:latest
+    container_name: dump1090-fa
+    restart: unless-stopped
+    ports:
+      - "8080:8080"   # SkyAware Web Map (http://localhost:8080/)
+      - "30003:30003" # BaseStation / SBS Output
+      - "30005:30005" # Beast Binary Output
+      - "30002:30002" # Raw Output
+    environment:
+      - RTL_TCP_IP=192.168.2.195   # RTL-TCP Server IP
+      - RTL_TCP_PORT=1234          # RTL-TCP Server Port
+      - LAT=50.1887                # Receiver Latitude
+      - LON=8.1244                 # Receiver Longitude
+      - GAIN=max                   # Tuner Gain (max, auto, or dB value)
+      - AGGRESSIVE=true            # 2-bit CRC error correction (--fix-2bit)
+```
+
+2. Start the container:
+```bash
+docker compose up -d
+```
+
+3. Open **`http://localhost:8080/`** in your browser to view the live SkyAware map!
+
+
 ## Building under bullseye, buster, or stretch
 
 ```bash
