@@ -1,32 +1,31 @@
 # --- Stage 1: Build ---
-FROM debian:bookworm-slim AS builder
+FROM alpine:latest AS builder
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    pkg-config \
+RUN apk add --no-cache \
+    build-base \
+    pkgconf \
     librtlsdr-dev \
-    libusb-1.0-0-dev \
-    libncurses-dev \
-    ca-certificates \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+    libusb-compat-dev \
+    ncurses-dev
 
 WORKDIR /src
 COPY . /src
 
-# Compile dump1090 (with RTLSDR and RTL-TCP support) and view1090
-RUN make clean && make -j$(nproc) BLADERF=no HACKRF=no LIMESDR=no SOAPYSDR=no dump1090 view1090
+# Compile dump1090 (with RTLSDR and RTL-TCP support) and view1090, strip debug symbols
+RUN make clean && \
+    make -j$(nproc) BLADERF=no HACKRF=no LIMESDR=no SOAPYSDR=no dump1090 view1090 && \
+    strip /src/dump1090 /src/view1090
 
-# --- Stage 2: Runtime ---
-FROM debian:bookworm-slim
+# --- Stage 2: Minimal Runtime ---
+FROM alpine:latest
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    librtlsdr0 \
-    libusb-1.0-0 \
-    libncurses6 \
+RUN apk add --no-cache \
+    librtlsdr \
+    libusb \
+    ncurses-libs \
     lighttpd \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    tzdata && \
+    rm -rf /var/cache/apk/*
 
 WORKDIR /app
 
