@@ -1,0 +1,37 @@
+services:
+  # Beispiel 1: Dump1090 über Netzwerk mit RTL-TCP Server verbunden
+  dump1090-rtltcp:
+    build: .
+    image: dump1090-mutability:latest
+    container_name: dump1090-rtltcp
+    restart: unless-stopped
+    ports:
+      - "8080:8080"   # Webinterface (Flugzeugkarte)
+      - "30003:30003" # SBS / BaseStation Port
+      - "30005:30005" # Beast Binary Port
+    environment:
+      - RTL_TCP_IP=192.168.2.195   # IP des RTL-TCP-Servers
+      - RTL_TCP_PORT=1234          # Port des RTL-TCP-Servers (Standard: 1234)
+      - LAT=52.5200                # Empfänger-Breitengrad (optional)
+      - LON=13.4050                # Empfänger-Längengrad (optional)
+      - MAX_RANGE=300              # Maximale Reichweite in Seemeilen (NM)
+      - GAIN=max                   # max, -10 (Auto) oder Wert in dB
+      - PPM=0                      # Frequenzkorrektur in PPM
+
+  # Beispiel 2: Dump1090 direkt mit lokal angeschlossenem USB RTL-SDR Dongle
+  # dump1090-usb:
+  #   build: .
+  #   image: dump1090-mutability:latest
+  #   container_name: dump1090-usb
+  #   restart: unless-stopped
+  #   devices:
+  #     - /dev/bus/usb:/dev/bus/usb # USB-Geräte an den Container durchreichen
+  #   ports:
+  #     - "8080:8080"
+  #     - "30003:30003"
+  #     - "30005:30005"
+  #   environment:
+  #     - DEVICE_INDEX=0
+  #     - LAT=52.5200
+  #     - LON=13.4050
+  #     - GAIN=max

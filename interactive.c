@@ -102,10 +102,10 @@ void interactiveShowData(void) {
               || (((flags & (MODEAC_MSG_MODES_HIT | MODEAC_MSG_MODEC_OLD )) == 0                    ) && (msgs > 127) ) 
               ) {
                 int altitude = a->altitude, speed = a->speed;
-                char strSquawk[5] = " ";
-                char strFl[6]     = " ";
-                char strTt[5]     = " ";
-                char strGs[5]     = " ";
+                char strSquawk[16] = " ";
+                char strFl[16]     = " ";
+                char strTt[16]     = " ";
+                char strGs[16]     = " ";
 
                 // Convert units to metric if --metric was specified
                 if (Modes.metric) {
@@ -114,13 +114,13 @@ void interactiveShowData(void) {
                 }
 
                 if (a->bFlags & MODES_ACFLAGS_SQUAWK_VALID) {
-                    snprintf(strSquawk,5,"%04x", a->modeA);}
+                    snprintf(strSquawk, sizeof(strSquawk), "%04x", a->modeA);}
 
                 if (a->bFlags & MODES_ACFLAGS_SPEED_VALID) {
-                    snprintf (strGs, 5,"%3d", speed);}
+                    snprintf (strGs, sizeof(strGs), "%3d", speed);}
 
                 if (a->bFlags & MODES_ACFLAGS_HEADING_VALID) {
-                    snprintf (strTt, 5,"%03d", a->track);}
+                    snprintf (strTt, sizeof(strTt), "%03d", a->track);}
 
                 if (msgs > 99999) {
                     msgs = 99999;}
@@ -128,15 +128,15 @@ void interactiveShowData(void) {
                 if (Modes.interactive_rtl1090) { // RTL1090 display mode
 
                     if (a->bFlags & MODES_ACFLAGS_ALTITUDE_VALID) {
-                        snprintf(strFl,6,"F%03d",(altitude/100));
+                        snprintf(strFl, sizeof(strFl), "F%03d", (altitude/100));
                     }
                     printf("%06x %-8s %-4s         %-3s %-3s %4s        %-6d  %-2.0f\n", 
                            a->addr, a->flight, strFl, strGs, strTt, strSquawk, msgs, (now - a->seen)/1000.0);
 
                 } else {                         // Dump1090 display mode
-                    char strMode[5]               = "    ";
-                    char strLat[8]                = " ";
-                    char strLon[9]                = " ";
+                    char strMode[16]              = "    ";
+                    char strLat[16]               = " ";
+                    char strLon[16]               = " ";
                     double * pSig                 = a->signalLevel;
                     double signalAverage = (pSig[0] + pSig[1] + pSig[2] + pSig[3] + 
                                             pSig[4] + pSig[5] + pSig[6] + pSig[7]) / 8.0; 
@@ -150,14 +150,14 @@ void interactiveShowData(void) {
                     if (flags & MODEAC_MSG_MODEC_HIT) {strMode[3] = 'c';}
 
                     if (a->bFlags & MODES_ACFLAGS_LATLON_VALID) {
-                        snprintf(strLat, 8,"%7.03f", a->lat);
-                        snprintf(strLon, 9,"%8.03f", a->lon);
+                        snprintf(strLat, sizeof(strLat), "%7.03f", a->lat);
+                        snprintf(strLon, sizeof(strLon), "%8.03f", a->lon);
                     }
 
                     if (a->bFlags & MODES_ACFLAGS_AOG) {
-                        snprintf(strFl, 6," grnd");
+                        snprintf(strFl, sizeof(strFl), " grnd");
                     } else if (a->bFlags & MODES_ACFLAGS_ALTITUDE_VALID) {
-                        snprintf(strFl, 6, "%5d", altitude);
+                        snprintf(strFl, sizeof(strFl), "%5d", altitude);
                     }
 
                     printf("%s%06X %-4s  %-4s  %-8s %5s  %3s  %3s  %7s %8s %5.1f %5d %2.0f\n",

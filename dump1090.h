@@ -76,8 +76,13 @@
     #include <ctype.h>
     #include <sys/stat.h>
     #include <sys/ioctl.h>
-    #include <time.h>
     #include <limits.h>
+    #include <sys/types.h>
+    #include <sys/socket.h>
+    #include <netinet/in.h>
+    #include <netinet/tcp.h>
+    #include <arpa/inet.h>
+    #include <netdb.h>
 #else
     #include "winstubs.h" //Put everything Windows specific in here
 #endif
@@ -273,6 +278,12 @@ struct {                             // Internal state
     int           freq;
     int           ppm_error;
 
+    // RTL-TCP
+    char *        rtl_tcp_host;
+    int           rtl_tcp_port;
+    int           rtl_tcp_fd;
+    uint16_t     *pRtlTcpBuffers[MODES_ASYNC_BUF_NUMBER];
+
     // Networking
     char           aneterr[ANET_ERR_LEN];
     struct client *clients;          // Our clients
@@ -449,6 +460,13 @@ char *generateAircraftJson(const char *url_path, int *len);
 char *generateReceiverJson(const char *url_path, int *len);
 char *generateStatsJson(const char *url_path, int *len);
 char *generateHistoryJson(const char *url_path, int *len);
+
+//
+// Functions exported for RTL-TCP support
+//
+int  modesInitRtlTcp(void);
+void readDataFromRtlTcp(void);
+void modesCloseRtlTcp(void);
 
 #ifdef __cplusplus
 }

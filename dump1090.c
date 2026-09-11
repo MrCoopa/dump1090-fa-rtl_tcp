@@ -155,6 +155,8 @@ void modesInitConfig(void) {
     Modes.json_interval           = 1000;
     Modes.json_location_accuracy  = 1;
     Modes.maxRange                = 1852 * 300; // 300NM default max range
+    Modes.rtl_tcp_port            = 1234;
+    Modes.rtl_tcp_fd              = -1;
 }
 //
 //=========================================================================
@@ -178,6 +180,16 @@ void modesInit(void) {
 
     // Clear the buffers that have just been allocated, just in-case
     memset(Modes.pFileData,127,   MODES_ASYNC_BUF_SIZE);
+
+    if (Modes.rtl_tcp_host) {
+        for (i = 0; i < MODES_ASYNC_BUF_NUMBER; i++) {
+            if ((Modes.pRtlTcpBuffers[i] = (uint16_t *) malloc(MODES_ASYNC_BUF_SIZE)) == NULL) {
+                fprintf(stderr, "Out of memory allocating RTL-TCP buffer.\n");
+                exit(1);
+            }
+            memset(Modes.pRtlTcpBuffers[i], 127, MODES_ASYNC_BUF_SIZE);
+        }
+    }
 
     // Validate the users Lat/Lon home location inputs
     if ( (Modes.fUserLat >   90.0)  // Latitude must be -90 to +90
@@ -488,6 +500,201 @@ void readDataFromFile(void) {
 //
 //=========================================================================
 //
+// RTL-TCP client handling
+//
+typedef struct {
+    char magic[4];
+    uint32_t tuner_type;
+    uint32_t tuner_gain_count;
+} __attribute__((packed)) rtl_tcp_dongle_info_t;
+
+typedef struct {
+    uint8_t cmd;
+    uint32_t param;
+} __attribute__((packed)) rtl_tcp_command_t;
+
+static int rtl_tcp_send_cmd(int fd, uint8_t cmd, uint32_t param) {
+    rtl_tcp_command_t c;
+    c.cmd = cmd;
+    c.param = htonl(param);
+    ssize_t written = 0;
+    unsigned char *p = (unsigned char *)&c;
+    while (written < (ssize_t)sizeof(c)) {
+        ssize_t n = send(fd, p + written, sizeof(c) - written, 0);
+        if (n <= 0) return -1;
+        written += n;
+    }
+    return 0;
+}
+
+void modesCloseRtlTcp(void) {
+    if (Modes.rtl_tcp_fd >= 0) {
+        close(Modes.rtl_tcp_fd);
+        Modes.rtl_tcp_fd = -1;
+    }
+}
+
+int modesInitRtlTcp(void) {
+    modesCloseRtlTcp();
+
+    int fd = anetTcpConnect(Modes.aneterr, Modes.rtl_tcp_host, Modes.rtl_tcp_port);
+    if (fd == ANET_ERR) {
+        fprintf(stderr, "Error connecting to RTL-TCP server %s:%d: %s\n",
+                Modes.rtl_tcp_host, Modes.rtl_tcp_port, Modes.aneterr);
+        return -1;
+    }
+    Modes.rtl_tcp_fd = fd;
+
+    anetTcpNoDelay(Modes.aneterr, Modes.rtl_tcp_fd);
+
+    // Read 12-byte dongle info header
+    rtl_tcp_dongle_info_t info;
+    ssize_t toread = sizeof(info);
+    unsigned char *p = (unsigned char *)&info;
+    while (toread > 0) {
+        ssize_t n = recv(Modes.rtl_tcp_fd, p, toread, 0);
+        if (n <= 0) {
+            fprintf(stderr, "Error reading header from RTL-TCP server: %s\n", strerror(errno));
+            modesCloseRtlTcp();
+            return -1;
+        }
+        p += n;
+        toread -= n;
+    }
+
+    if (memcmp(info.magic, "RTL0", 4) != 0) {
+        fprintf(stderr, "Invalid magic from RTL-TCP server: '%.4s'\n", info.magic);
+        modesCloseRtlTcp();
+        return -1;
+    }
+
+    uint32_t tuner_type = ntohl(info.tuner_type);
+    uint32_t gain_count = ntohl(info.tuner_gain_count);
+    fprintf(stderr, "Connected to RTL-TCP server at %s:%d (tuner type: %u, gain count: %u)\n",
+            Modes.rtl_tcp_host, Modes.rtl_tcp_port, tuner_type, gain_count);
+
+    // 1. Set sample rate
+    uint32_t rate = Modes.oversample ? MODES_OVERSAMPLE_RATE : MODES_DEFAULT_RATE;
+    if (rtl_tcp_send_cmd(Modes.rtl_tcp_fd, 0x02, rate) < 0) goto send_err;
+
+    // 2. Set center frequency
+    if (rtl_tcp_send_cmd(Modes.rtl_tcp_fd, 0x01, (uint32_t)Modes.freq) < 0) goto send_err;
+
+    // 3. Set gain mode
+    if (rtl_tcp_send_cmd(Modes.rtl_tcp_fd, 0x03, (Modes.gain == MODES_AUTO_GAIN) ? 0 : 1) < 0) goto send_err;
+
+    // 4. Set gain (if manual)
+    if (Modes.gain != MODES_AUTO_GAIN) {
+        if (Modes.gain == MODES_MAX_GAIN) {
+            if (gain_count > 0) {
+                if (rtl_tcp_send_cmd(Modes.rtl_tcp_fd, 0x0c, gain_count - 1) < 0) goto send_err;
+            } else {
+                if (rtl_tcp_send_cmd(Modes.rtl_tcp_fd, 0x04, 500) < 0) goto send_err;
+            }
+            fprintf(stderr, "Setting RTL-TCP tuner gain to max available.\n");
+        } else {
+            if (rtl_tcp_send_cmd(Modes.rtl_tcp_fd, 0x04, (uint32_t)Modes.gain) < 0) goto send_err;
+            fprintf(stderr, "Setting RTL-TCP tuner gain to: %.2f dB\n", Modes.gain / 10.0);
+        }
+    } else {
+        fprintf(stderr, "Using automatic gain control on RTL-TCP.\n");
+    }
+
+    // 5. Frequency correction
+    if (Modes.ppm_error != 0) {
+        if (rtl_tcp_send_cmd(Modes.rtl_tcp_fd, 0x05, (uint32_t)Modes.ppm_error) < 0) goto send_err;
+    }
+
+    // 6. AGC mode
+    if (Modes.enable_agc) {
+        if (rtl_tcp_send_cmd(Modes.rtl_tcp_fd, 0x08, 1) < 0) goto send_err;
+    }
+
+    // Set receive timeout so that recv() wakes periodically and checks Modes.exit
+    struct timeval tv;
+    tv.tv_sec = 2;
+    tv.tv_usec = 0;
+    setsockopt(Modes.rtl_tcp_fd, SOL_SOCKET, SO_RCVTIMEO, (const void*)&tv, sizeof(tv));
+
+    return 0;
+
+send_err:
+    fprintf(stderr, "Error configuring RTL-TCP server: %s\n", strerror(errno));
+    modesCloseRtlTcp();
+    return -1;
+}
+
+void readDataFromRtlTcp(void) {
+    while (!Modes.exit) {
+        if (Modes.rtl_tcp_fd < 0) {
+            log_with_timestamp("Trying to reconnect to RTL-TCP server %s:%d..",
+                               Modes.rtl_tcp_host, Modes.rtl_tcp_port);
+            if (modesInitRtlTcp() < 0) {
+                if (Modes.exit) break;
+                sleep(5);
+                continue;
+            }
+        }
+
+        ssize_t toread = MODES_ASYNC_BUF_SIZE;
+        unsigned char *p = (unsigned char *) Modes.pRtlTcpBuffers[Modes.iDataIn];
+
+        while (toread > 0 && !Modes.exit) {
+            ssize_t nread = recv(Modes.rtl_tcp_fd, p, toread, 0);
+            if (nread < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+                    continue;
+                }
+                log_with_timestamp("Warning: error reading from RTL-TCP server: %s", strerror(errno));
+                modesCloseRtlTcp();
+                break;
+            } else if (nread == 0) {
+                log_with_timestamp("Warning: lost connection to RTL-TCP server.");
+                modesCloseRtlTcp();
+                break;
+            }
+            p += nread;
+            toread -= nread;
+        }
+
+        if (Modes.rtl_tcp_fd < 0) {
+            sleep(2);
+            continue;
+        }
+
+        if (Modes.exit) break;
+
+        pthread_mutex_lock(&Modes.data_mutex);
+
+        Modes.iDataIn &= (MODES_ASYNC_BUF_NUMBER - 1);
+
+        // Record system time
+        clock_gettime(CLOCK_REALTIME, &Modes.stSystemTimeRTL[Modes.iDataIn]);
+
+        // Queue buffer
+        Modes.pData[Modes.iDataIn] = Modes.pRtlTcpBuffers[Modes.iDataIn];
+        Modes.iDataIn    = (MODES_ASYNC_BUF_NUMBER - 1) & (Modes.iDataIn + 1);
+        Modes.iDataReady = (MODES_ASYNC_BUF_NUMBER - 1) & (Modes.iDataIn - Modes.iDataOut);
+
+        if (Modes.iDataReady == 0) {
+            Modes.iDataOut   = (MODES_ASYNC_BUF_NUMBER - 1) & (Modes.iDataOut + 1);
+            Modes.iDataReady = (MODES_ASYNC_BUF_NUMBER - 1);
+            Modes.iDataLost++;
+        }
+
+        end_cpu_timing(&reader_thread_start, &Modes.reader_cpu_accumulator);
+        start_cpu_timing(&reader_thread_start);
+
+        pthread_cond_signal(&Modes.data_cond);
+        pthread_mutex_unlock(&Modes.data_mutex);
+    }
+
+    modesCloseRtlTcp();
+}
+
+//
+//=========================================================================
+//
 // We read data using a thread, so the main thread only handles decoding
 // without caring about data acquisition
 //
@@ -497,7 +704,9 @@ void *readerThreadEntryPoint(void *arg) {
 
     start_cpu_timing(&reader_thread_start); // we accumulate in rtlsdrCallback() or readDataFromFile()
 
-    if (Modes.filename == NULL) {
+    if (Modes.rtl_tcp_host != NULL) {
+        readDataFromRtlTcp();
+    } else if (Modes.filename == NULL) {
         while (!Modes.exit) {
             rtlsdr_read_async(Modes.dev, rtlsdrCallback, NULL,
                               MODES_ASYNC_BUF_NUMBER,
@@ -569,6 +778,8 @@ void showHelp(void) {
 "--enable-agc             Enable the Automatic Gain Control (default: off)\n"
 "--freq <hz>              Set frequency (default: 1090 Mhz)\n"
 "--ifile <filename>       Read data from file (use '-' for stdin)\n"
+"--net-rtl-tcp <host:port> Connect to RTL-TCP server for I/Q samples (default port: 1234)\n"
+"--net-rtl-tcp-port <port> Set RTL-TCP server port (default: 1234)\n"
 "--interactive            Interactive mode refreshing data on screen\n"
 "--interactive-rows <num> Max number of rows in interactive mode (default: 15)\n"
 "--interactive-ttl <sec>  Remove from list if idle for <sec> (default: 60)\n"
@@ -803,6 +1014,29 @@ int main(int argc, char **argv) {
     // Set sane defaults
     modesInitConfig();
 
+    // Check environment variables for RTL-TCP IP and Port
+    char *env_host = getenv("RTL_TCP_IP");
+    if (!env_host) env_host = getenv("RTL_TCP_HOST");
+    if (!env_host) env_host = getenv("RTL_IP");
+    if (!env_host) env_host = getenv("IP");
+    if (env_host && env_host[0] != '\0') {
+        char *colon = strchr(env_host, ':');
+        if (colon) {
+            *colon = '\0';
+            Modes.rtl_tcp_host = strdup(env_host);
+            Modes.rtl_tcp_port = atoi(colon + 1);
+            *colon = ':';
+        } else {
+            Modes.rtl_tcp_host = strdup(env_host);
+        }
+    }
+
+    char *env_port = getenv("RTL_TCP_PORT");
+    if (!env_port) env_port = getenv("RTL_PORT");
+    if (env_port && env_port[0] != '\0') {
+        Modes.rtl_tcp_port = atoi(env_port);
+    }
+
     // signal handlers:
     signal(SIGINT, sigintHandler);
     signal(SIGTERM, sigtermHandler);
@@ -813,8 +1047,28 @@ int main(int argc, char **argv) {
 
         if (!strcmp(argv[j],"--device-index") && more) {
             Modes.dev_name = strdup(argv[++j]);
+        } else if ((!strcmp(argv[j],"--net-rtl-tcp") || !strcmp(argv[j],"--rtl-tcp")) && more) {
+            char *arg = argv[++j];
+            char *colon = strchr(arg, ':');
+            if (colon) {
+                *colon = '\0';
+                Modes.rtl_tcp_host = strdup(arg);
+                Modes.rtl_tcp_port = atoi(colon + 1);
+                *colon = ':';
+            } else {
+                Modes.rtl_tcp_host = strdup(arg);
+            }
+        } else if (!strcmp(argv[j],"--net-rtl-tcp-port") && more) {
+            Modes.rtl_tcp_port = atoi(argv[++j]);
         } else if (!strcmp(argv[j],"--gain") && more) {
-            Modes.gain = (int) (atof(argv[++j])*10); // Gain is in tens of DBs
+            char *gain_arg = argv[++j];
+            if (!strcasecmp(gain_arg, "max")) {
+                Modes.gain = MODES_MAX_GAIN;
+            } else if (!strcasecmp(gain_arg, "auto")) {
+                Modes.gain = MODES_AUTO_GAIN;
+            } else {
+                Modes.gain = (int) (atof(gain_arg)*10); // Gain is in tens of DBs
+            }
         } else if (!strcmp(argv[j],"--enable-agc")) {
             Modes.enable_agc++;
         } else if (!strcmp(argv[j],"--freq") && more) {
@@ -972,6 +1226,10 @@ int main(int argc, char **argv) {
 
     if (Modes.net_only) {
         fprintf(stderr,"Net-only mode, no RTL device or file open.\n");
+    } else if (Modes.rtl_tcp_host != NULL) {
+        if (modesInitRtlTcp() < 0) {
+            fprintf(stderr, "Warning: initial connection to RTL-TCP server failed; will retry in background.\n");
+        }
     } else if (Modes.filename == NULL) {
         if (modesInitRTLSDR() < 0) {
             exit(1);
