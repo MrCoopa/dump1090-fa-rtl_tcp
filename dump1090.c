@@ -611,7 +611,14 @@ int main(int argc, char **argv) {
         } else if ( (!strcmp(argv[j], "--device") || !strcmp(argv[j], "--device-index")) && more) {
             Modes.dev_name = strdup(argv[++j]);
         } else if (!strcmp(argv[j],"--gain") && more) {
-            Modes.gain = atof(argv[++j]);
+            char *gain_arg = argv[++j];
+            if (!strcasecmp(gain_arg, "max")) {
+                Modes.gain = MODES_DEFAULT_GAIN;
+            } else if (!strcasecmp(gain_arg, "auto")) {
+                Modes.gain = MODES_LEGACY_AUTO_GAIN;
+            } else {
+                Modes.gain = atof(gain_arg);
+            }
         } else if (!strcmp(argv[j],"--dcfilter")) {
 #if 0
             Modes.dc_filter = 1;

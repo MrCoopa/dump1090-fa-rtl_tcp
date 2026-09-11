@@ -1,0 +1,38 @@
+services:
+  # FlightAware Dump1090 mit SkyAware Webkarte & RTL-TCP Anbindung
+  dump1090:
+    build: .
+    image: dump1090-fa:latest
+    container_name: dump1090-fa
+    restart: unless-stopped
+    ports:
+      - "8080:8080"   # SkyAware Webkarte (http://localhost:8080/)
+      - "30003:30003" # BaseStation (SBS) Port
+      - "30005:30005" # Beast Binary Port
+      - "30002:30002" # Raw Output Port
+    environment:
+      - RTL_TCP_IP=192.168.2.195   # IP des RTL-TCP-Servers
+      - RTL_TCP_PORT=1234          # Port des RTL-TCP-Servers (Standard: 1234)
+      - LAT=50.1887                # Hohenstein Steckenroth
+      - LON=8.1244                 # Hohenstein Steckenroth
+      - GAIN=max                   # max, auto oder Wert in dB (z.B. 49.6)
+      - PPM=0                      # Frequenzkorrektur in PPM
+      - AGGRESSIVE=true            # Aktiviert den 2-Bit CRC Korrekturmodus (--fix-2bit)
+
+  # Optional: Direkt über USB RTL-SDR Dongle betreiben
+  # dump1090-usb:
+  #   build: .
+  #   image: dump1090-fa:latest
+  #   container_name: dump1090-usb
+  #   restart: unless-stopped
+  #   devices:
+  #     - /dev/bus/usb:/dev/bus/usb
+  #   ports:
+  #     - "8080:8080"
+  #     - "30003:30003"
+  #     - "30005:30005"
+  #   environment:
+  #     - DEVICE_INDEX=0
+  #     - LAT=52.5200
+  #     - LON=13.4050
+  #     - GAIN=max
