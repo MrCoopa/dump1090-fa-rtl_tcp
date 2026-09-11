@@ -8,6 +8,10 @@
 > **Fork Information:**  
 > This project is a specialized fork of FlightAware's official [dump1090 repository](https://github.com/flightaware/dump1090) (`dump1090-fa`).  
 > 
+> **Available Branches:**
+> - **[`main`](https://github.com/MrCoopa/dump1090-fa-rtl_tcp/tree/main) (Default, Recommended):** Ultra-minimalist **Alpine Linux** base (only **37 MB** uncompressed image size, **~4 MB RAM** footprint).
+> - **[`debian`](https://github.com/MrCoopa/dump1090-fa-rtl_tcp/tree/debian):** Standard **Debian Bookworm** base (uses standard `glibc`, full Debian toolchain, 146 MB image).
+> 
 > **What this fork adds over upstream `dump1090-fa`:**
 > - **Native RTL-TCP Client Support**: Stream raw I/Q samples over the network from a remote RTL-TCP server (e.g. Raspberry Pi with `rtl_tcp` or any networked RTL-SDR dongle) using `--device-type rtltcp`.
 > - **Ready-to-use Docker Container**: Multi-stage lightweight container packaging both `dump1090-fa` and the **FlightAware SkyAware Web Map** powered by `lighttpd`.
