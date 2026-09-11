@@ -1,5 +1,5 @@
 services:
-  # FlightAware Dump1090 mit SkyAware Webkarte & RTL-TCP Anbindung
+  # Fork von FlightAware dump1090-fa mit RTL-TCP Anbindung & SkyAware Webkarte
   dump1090:
     build: .
     image: dump1090-fa:latest

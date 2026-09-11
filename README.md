@@ -1,26 +1,29 @@
-# dump1090-fa Debian/Raspbian packages
+# dump1090-fa (RTL-TCP Fork)
 
-dump1090-fa is a ADS-B, Mode S, and Mode 3A/3C demodulator and decoder that
-will receive and decode aircraft transponder messages received via
-a directly connected software defined radio, or from data provided over a
-network connection.
+[![Upstream: FlightAware dump1090](https://img.shields.io/badge/upstream-FlightAware%2Fdump1090-blue.svg)](https://github.com/flightaware/dump1090)
+[![Docker Support](https://img.shields.io/badge/docker-ready-2496ED.svg?logo=docker&logoColor=white)](#-docker--rtl-tcp-quickstart)
+[![License: GPL v2](https://img.shields.io/badge/license-GPL%20v2-green.svg)](LICENSE)
 
-It is the successor to
-[dump1090-mutability](https://github.com/mutability/dump1090) and is
-maintained by [FlightAware](http://flightaware.com/).
+> [!NOTE]
+> **Fork Information:**  
+> This project is a specialized fork of FlightAware's official [dump1090 repository](https://github.com/flightaware/dump1090) (`dump1090-fa`).  
+> 
+> **What this fork adds over upstream `dump1090-fa`:**
+> - **Native RTL-TCP Client Support**: Stream raw I/Q samples over the network from a remote RTL-TCP server (e.g. Raspberry Pi with `rtl_tcp` or any networked RTL-SDR dongle) using `--device-type rtltcp`.
+> - **Ready-to-use Docker Container**: Multi-stage lightweight container packaging both `dump1090-fa` and the **FlightAware SkyAware Web Map** powered by `lighttpd`.
+> - **Zero-Configuration Environment Variables**: Easily configure remote RTL-TCP IP/port, receiver location (`LAT`/`LON`), tuner gain, and aggressive 2-bit CRC error correction via Docker environment variables.
 
-It can provide a display of locally received aircraft data in a terminal or
-via a browser map. Together with [PiAware](http://flightaware.com/adsb/piaware)
-it can be used to contribute crowd-sourced flight tracking data to FlightAware.
+---
 
-It is designed to build as a Debian package, but should also be buildable on
-many other Linux or Unix-like systems.
+### About dump1090-fa
 
-## 🐳 Docker & RTL-TCP Support
+dump1090-fa is a Mode S and ADS-B demodulator and decoder maintained by [FlightAware](https://flightaware.com/). It is the successor to [dump1090-mutability](https://github.com/mutability/dump1090).
 
-This fork adds native **RTL-TCP network client support** and ready-to-run **Docker & Docker Compose** integration including the **SkyAware Web Map** on port `8080`.
+It can provide a display of locally received aircraft data in a terminal or via a browser map (SkyAware). Together with [PiAware](https://flightaware.com/adsb/piaware) it can be used to contribute crowd-sourced flight tracking data to FlightAware.
 
-### Quick Start with Docker Compose
+---
+
+## 🐳 Docker & RTL-TCP Quickstart
 
 1. Configure your settings in `docker-compose.yml`:
 ```yaml
