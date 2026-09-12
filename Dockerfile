@@ -29,7 +29,7 @@ RUN git clone --depth 1 https://github.com/wiedehopf/tar1090.git /src/tar1090-sr
     cp -r /src/tar1090-db/db /src/tar1090-web/db-$DB_VERSION && \
     sed -i "s/let databaseFolder = .*/let databaseFolder = \"db-$DB_VERSION\";/" /src/tar1090-web/index.html && \
     echo "{\"tar1090Version\": \"$TAR_VERSION\", \"databaseVersion\": \"$DB_VERSION\"}" > /src/tar1090-web/version.json && \
-    bash /src/tar1090-src/cachebust.sh /src/tar1090-src/cachebust.list /src/tar1090-web/
+    (cd /src/tar1090-web && bash /src/tar1090-src/cachebust.sh /src/tar1090-src/cachebust.list /src/tar1090-web)
 
 # --- Stage 2: Minimal Runtime ---
 FROM alpine:latest

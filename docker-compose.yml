@@ -1,41 +1,35 @@
 services:
-  # Fork von FlightAware dump1090-fa mit RTL-TCP Anbindung & tar1090 Web-Dashboard
   dump1090:
     build: .
     image: dump1090-tar1090:latest
     container_name: dump1090-tar1090
     restart: unless-stopped
+    # Falls direkter USB RTL-SDR Dongle (unter Linux / WSL2 usbipd):
+    # privileged: true
+    # devices:
+    #   - /dev/bus/usb:/dev/bus/usb
     ports:
-      - "8080:8080"   # tar1090 Webkarte (http://localhost:8080/ & http://localhost:8080/skyaware/)
-      - "30003:30003" # BaseStation (SBS) Port
-      - "30005:30005" # Beast Binary Port
-      - "30002:30002" # Raw Output Port
+      - "8080:8080"   # tar1090 Webkarte (http://localhost:8080/)
+      - "30003:30003" # BaseStation / SBS Output
+      - "30005:30005" # Beast Binary Output
+      - "30002:30002" # Raw Output
     environment:
-      - RTL_TCP_IP=192.168.1.100   # IP des RTL-TCP-Servers
-      - RTL_TCP_PORT=1234          # Port des RTL-TCP-Servers (Standard: 1234)
-      - LAT=52.5200                # Empfänger-Breitengrad (optional)
-      - LON=13.4050                # Empfänger-Längengrad (optional)
-      - SITE_NAME=MyStation        # Stationsname auf der tar1090-Karte
-      - GAIN=max                   # max, auto oder Wert in dB (z.B. 49.6)
-      - PPM=0                      # Frequenzkorrektur in PPM
-      - AGGRESSIVE=true            # Aktiviert den 2-Bit CRC Korrekturmodus (--fix-2bit)
-      - INTERVAL=8                 # Sekunden zwischen Track-Snapshots
-      - HISTORY_SIZE=450           # Anzahl der Snapshots (450 * 8s = 1 Stunde Track-Verlauf)
+      # Empfänger-Hardware: RTL-SDR Dongle Device ID 1
+      - DEVICE_INDEX=1
+      # Falls RTL-TCP Server verwendet wird (optional auskommentiert):
+      # - RTL_TCP_IP=192.168.1.100
+      # - RTL_TCP_PORT=1234
 
-  # Optional: Direkt über USB RTL-SDR Dongle betreiben
-  # dump1090-usb:
-  #   build: .
-  #   image: dump1090-tar1090:latest
-  #   container_name: dump1090-usb
-  #   restart: unless-stopped
-  #   devices:
-  #     - /dev/bus/usb:/dev/bus/usb
-  #   ports:
-  #     - "8080:8080"
-  #     - "30003:30003"
-  #     - "30005:30005"
-  #   environment:
-  #     - DEVICE_INDEX=0
-  #     - LAT=52.5200
-  #     - LON=13.4050
-  #     - GAIN=max
+      # Standort: Hohenstein-Steckenroth (Rheingau-Taunus-Kreis, Hessen)
+      - LAT=50.1887
+      - LON=8.1244
+      - SITE_NAME=Hohenstein-Steckenroth
+
+      # Empfänger-Tuning
+      - GAIN=max                   # max, auto oder dB (z.B. 49.6)
+      - PPM=0                      # Frequenzkorrektur
+      - AGGRESSIVE=true            # 2-Bit CRC Korrektur (--fix-2bit)
+
+      # tar1090 Verlaufshistorie
+      - INTERVAL=8                 # Sekunden zwischen Track-Snapshots
+      - HISTORY_SIZE=450           # Snapshots für Verlauf (450 * 8s = 1 Stunde)
