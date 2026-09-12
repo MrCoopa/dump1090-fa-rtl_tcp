@@ -20,10 +20,10 @@ services:
       # - RTL_TCP_IP=192.168.1.100
       # - RTL_TCP_PORT=1234
 
-      # Standort: Hohenstein-Steckenroth (Rheingau-Taunus-Kreis, Hessen)
-      - LAT=50.1887
-      - LON=8.1244
-      - SITE_NAME=Hohenstein-Steckenroth
+      # Standort: Empfänger-Koordinaten (optional, z.B. für Distanzberechnung & Reichweitenringe)
+      # - LAT=52.5200
+      # - LON=13.4050
+      # - SITE_NAME=MeineStation
 
       # Empfänger-Tuning
       - GAIN=max                   # max, auto oder dB (z.B. 49.6)
