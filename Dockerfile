@@ -27,7 +27,7 @@ RUN git clone --depth 1 https://github.com/wiedehopf/tar1090.git /src/tar1090-sr
     DB_VERSION=$(cd /src/tar1090-db && git rev-parse --short HEAD 2>/dev/null || echo "db") && \
     TAR_VERSION=$(cd /src/tar1090-src && git rev-parse --short HEAD 2>/dev/null || echo "1.0") && \
     cp -r /src/tar1090-db/db /src/tar1090-web/db-$DB_VERSION && \
-    sed -i "s/let databaseFolder = .*/let databaseFolder = \"db-$DB_VERSION\";/" /src/tar1090-web/index.html && \
+    sed -i "s#let databaseFolder = \"[^\"]*\";#let databaseFolder = \"db-$DB_VERSION\";#" /src/tar1090-web/index.html && \
     echo "{\"tar1090Version\": \"$TAR_VERSION\", \"databaseVersion\": \"$DB_VERSION\"}" > /src/tar1090-web/version.json && \
     (cd /src/tar1090-web && bash /src/tar1090-src/cachebust.sh /src/tar1090-src/cachebust.list /src/tar1090-web)
 
