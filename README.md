@@ -1,169 +1,110 @@
-# dump1090-fa (RTL-TCP Fork)
+# dump1090-fa (RTL-TCP + tar1090)
 
 [![Upstream: FlightAware dump1090](https://img.shields.io/badge/upstream-FlightAware%2Fdump1090-blue.svg)](https://github.com/flightaware/dump1090)
+[![Web UI: tar1090](https://img.shields.io/badge/webui-wiedehopf%2Ftar1090-orange.svg)](https://github.com/wiedehopf/tar1090)
 [![Docker Support](https://img.shields.io/badge/docker-ready-2496ED.svg?logo=docker&logoColor=white)](#-docker--rtl-tcp-quickstart)
 [![License: GPL v2](https://img.shields.io/badge/license-GPL%20v2-green.svg)](LICENSE)
 
 > [!NOTE]
-> **Fork Information:**  
-> This project is a specialized fork of FlightAware's official [dump1090 repository](https://github.com/flightaware/dump1090) (`dump1090-fa`).  
+> **Branch Information (`tar1090`):**  
+> Dieser Branch kombiniert **dump1090-fa** (inklusive nativem **RTL-TCP**-Netzwerk-Client) mit dem modernen und feature-reichen Web-Interface **[tar1090 von wiedehopf](https://github.com/wiedehopf/tar1090)** sowie der dazugehörigen Flugzeugdatenbank (**[tar1090-db](https://github.com/wiedehopf/tar1090-db)**).
 > 
-> **Available Branches:**
-> - **[`main`](https://github.com/MrCoopa/dump1090-fa-rtl_tcp/tree/main) (Default, Recommended):** Ultra-minimalist **Alpine Linux** base (only **37 MB** uncompressed image size, **~4 MB RAM** footprint).
-> - **[`debian`](https://github.com/MrCoopa/dump1090-fa-rtl_tcp/tree/debian):** Standard **Debian 13 (Trixie)** base (uses standard `glibc` and GCC 14, full Debian toolchain, 146 MB image).
-> 
-> **What this fork adds over upstream `dump1090-fa`:**
-> - **Native RTL-TCP Client Support**: Stream raw I/Q samples over the network from a remote RTL-TCP server (e.g. Raspberry Pi with `rtl_tcp` or any networked RTL-SDR dongle) using `--device-type rtltcp`.
-> - **Ready-to-use Docker Container**: Multi-stage lightweight container packaging both `dump1090-fa` and the **FlightAware SkyAware Web Map** powered by `lighttpd`.
-> - **Zero-Configuration Environment Variables**: Easily configure remote RTL-TCP IP/port, receiver location (`LAT`/`LON`), tuner gain, and aggressive 2-bit CRC error correction via Docker environment variables.
+> **Verfügbare Branches im Repository:**
+> - **[`main`](https://github.com/MrCoopa/dump1090-fa-rtl_tcp/tree/main):** Minimalistisches Image mit Standard SkyAware Webkarte auf Alpine Linux (~37 MB).
+> - **[`debian`](https://github.com/MrCoopa/dump1090-fa-rtl_tcp/tree/debian):** Standard Debian 13 (Trixie) Basis.
+> - **[`tar1090`](https://github.com/MrCoopa/dump1090-fa-rtl_tcp/tree/tar1090) (dieser Branch):** dump1090-fa + tar1090 Dashboard (Flugpfadhistorie, Heatmaps, Flugzeugsilhouetten und erweiterte Filter).
 
 ---
 
-### About dump1090-fa
+## ✈️ Highlights von tar1090 in diesem Image
 
-dump1090-fa is a Mode S and ADS-B demodulator and decoder maintained by [FlightAware](https://flightaware.com/). It is the successor to [dump1090-mutability](https://github.com/mutability/dump1090).
-
-It can provide a display of locally received aircraft data in a terminal or via a browser map (SkyAware). Together with [PiAware](https://flightaware.com/adsb/piaware) it can be used to contribute crowd-sourced flight tracking data to FlightAware.
+- **Modernes Dashboard:** Flüssige Vektor- und Kartendarstellung basierend auf OpenLayers.
+- **Flugpfad-Historie & Heatmaps:** Kontinuierliche Speicherung von Flugbewegungen via integriertem `tar1090.sh` Hintergrund-Dienst.
+- **Flugzeugdatenbank & Silhouetten:** Flugzeugtypen, Betreiberlogos und Silhouetten direkt auf der Karte.
+- **Parallele Weboberflächen:** 
+  - `http://localhost:8080/` oder `http://localhost:8080/tar1090/` zeigt das **tar1090**-Interface.
+  - `http://localhost:8080/skyaware/` steht weiterhin für die klassische FlightAware-Karte bereit.
+- **Volle RTL-TCP Integration:** Empfang über das Netzwerk von jedem Remote-RTL-SDR/Raspberry Pi.
 
 ---
 
 ## 🐳 Docker & RTL-TCP Quickstart
 
-1. Configure your settings in `docker-compose.yml`:
+### 1. docker-compose.yml anpassen
+
 ```yaml
 services:
   dump1090:
     build: .
-    image: dump1090-fa:latest
-    container_name: dump1090-fa
+    image: dump1090-tar1090:latest
+    container_name: dump1090-tar1090
     restart: unless-stopped
     ports:
-      - "8080:8080"   # SkyAware Web Map (http://localhost:8080/)
+      - "8080:8080"   # tar1090 Webkarte (http://localhost:8080/)
       - "30003:30003" # BaseStation / SBS Output
       - "30005:30005" # Beast Binary Output
       - "30002:30002" # Raw Output
     environment:
-      - RTL_TCP_IP=192.168.1.100   # RTL-TCP Server IP
-      - RTL_TCP_PORT=1234          # RTL-TCP Server Port
-      - LAT=52.5200                # Receiver Latitude
-      - LON=13.4050                # Receiver Longitude
-      - GAIN=max                   # Tuner Gain (max, auto, or dB value)
-      - AGGRESSIVE=true            # 2-bit CRC error correction (--fix-2bit)
+      - RTL_TCP_IP=192.168.1.100   # IP des RTL-TCP Servers
+      - RTL_TCP_PORT=1234          # Port des RTL-TCP Servers (Standard: 1234)
+      - LAT=52.5200                # Empfänger-Breitengrad (optional)
+      - LON=13.4050                # Empfänger-Längengrad (optional)
+      - SITE_NAME=MeineStation     # Name der Empfangsstation auf der Karte
+      - GAIN=max                   # Tuner Gain (max, auto oder dB z.B. 49.6)
+      - AGGRESSIVE=true            # 2-Bit CRC Fehlerkorrektur (--fix-2bit)
+      - INTERVAL=8                 # Intervall (Sekunden) für Track-Snapshots
+      - HISTORY_SIZE=450           # Snapshots für Verlauf (450 * 8s = 1 Stunde)
 ```
 
-2. Start the container:
+### 2. Container starten
+
 ```bash
 docker compose up -d
 ```
 
-3. Open **`http://localhost:8080/`** in your browser to view the live SkyAware map!
+### 3. Webkarte öffnen
 
+Öffne **`http://localhost:8080/`** im Browser.
 
-## Building under bullseye, buster, or stretch
+---
+
+## ⚙️ Umgebungsvariablen
+
+| Variable | Standard | Beschreibung |
+|---|---|---|
+| `RTL_TCP_IP` | - | IP-Adresse des entfernten `rtl_tcp` Servers |
+| `RTL_TCP_PORT` | `1234` | Port des entfernten `rtl_tcp` Servers |
+| `DEVICE_INDEX` | - | Lokaler USB RTL-SDR Index (falls kein RTL-TCP verwendet wird) |
+| `LAT` | - | Breitengrad der Empfänger-Position (setzt auch Ringzentrum in tar1090) |
+| `LON` | - | Längengrad der Empfänger-Position |
+| `SITE_NAME` | - | Anzeigename der Station in tar1090 |
+| `GAIN` | `max` | Verstärkung des Tuners in dB, `max` oder `auto` |
+| `ENABLE_AGC` | `0` | Digital AGC aktivieren (`1` oder `true`) |
+| `FREQ` | `1090000000` | Empfangsfrequenz in Hz |
+| `PPM` | `0` | Frequenzkorrektur in PPM |
+| `AGGRESSIVE` / `FIX_2BIT` | `0` | Aktiviert 2-Bit CRC Korrektur |
+| `INTERVAL` | `8` | Snapshot-Intervall in Sekunden für tar1090 Track-History |
+| `HISTORY_SIZE` | `450` | Anzahl der History-Snapshots |
+| `ENABLE_TAR1090` | `1` | `0` schaltet den tar1090 History-Daemon ab |
+
+---
+
+## 🛠️ Manuelles Bauen des Docker-Images
 
 ```bash
-$ sudo apt-get install build-essential fakeroot debhelper librtlsdr-dev pkg-config libncurses5-dev libbladerf-dev libhackrf-dev liblimesuite-dev libsoapysdr-dev devscripts
-$ ./prepare-build.sh bullseye    # or buster, or stretch
-$ cd package-bullseye            # or buster, or stretch
-$ dpkg-buildpackage -b --no-sign
+docker build -t dump1090-tar1090:latest .
 ```
 
-## Building with limited dependencies
-
-(Supported for bullseye and buster builds only)
-
-The package supports some build profiles to allow building without all
-required SDR libraries being present. This will produce a package with
-limited SDR support only.
-
-Pass `--build-profiles` to `dpkg-buildpackage` with a comma-separated list of
-profiles. The list of profiles should include `custom` and zero or more of
-`rtlsdr`, `bladerf`, `hackrf`, `limesdr`, 'soapysdr' depending on what you want:
-
+Container ausführen:
 ```bash
-$ dpkg-buildpackage -b --no-sign --build-profiles=custom,rtlsdr          # builds with rtlsdr support only
-$ dpkg-buildpackage -b --no-sign --build-profiles=custom,rtlsdr,bladerf  # builds with rtlsdr and bladeRF support
-$ dpkg-buildpackage -b --no-sign --build-profiles=custom                 # builds with _no_ SDR support (network support only)
+docker run -d \
+  --name dump1090-tar1090 \
+  -p 8080:8080 \
+  -p 30005:30005 \
+  -p 30003:30003 \
+  -e RTL_TCP_IP=192.168.1.100 \
+  -e RTL_TCP_PORT=1234 \
+  -e LAT=52.5200 \
+  -e LON=13.4050 \
+  dump1090-tar1090:latest
 ```
-
-
-## Building manually
-
-You can probably just run "make" after installing the required dependencies.
-Binaries are built in the source directory; you will need to arrange to
-install them (and a method for starting them) yourself.
-
-``make BLADERF=no`` will disable bladeRF support and remove the dependency on
-libbladeRF.
-
-``make RTLSDR=no`` will disable rtl-sdr support and remove the dependency on
-librtlsdr.
-
-``make HACKRF=no`` will disable HackRF support and remove the dependency on 
-libhackrf.
-
-``make LIMESDR=no`` will disable LimeSDR support and remove the dependency on
-libLimeSuite.
-
-``make SOAPYSDR=no`` will disable SoapySDR support and remove the dependency on
-libSoapySDR.
-
-## Building on OSX
-
-Minimal testing on Mojave 10.14.6, YMMV.
-
-```
-$ brew install librtlsdr
-$ brew install libbladerf
-$ brew install hackrf
-$ brew install pkg-config
-$ make
-```
-
-## Building on FreeBSD
-
-Minimal testing on 12.1-RELEASE, YMMV.
-
-```
-# pkg install gmake
-# pkg install pkgconf
-# pkg install rtl-sdr
-# pkg install bladerf
-# pkg install hackrf
-$ gmake
-```
-
-## Generating wisdom files
-
-dump1090-fa uses [starch](https://github.com/flightaware/starch) to build
-multiple versions of the DSP code and choose the fastest supported by the
-hardware at runtime. The implementations chosen can been seen by running
-`dump1090-fa --version`.
-
-The implementations used are controlled by "wisdom files", a list of
-implementations to use in order of priority. For each DSP function, the first
-implementation listed that's supported by the current hardware is used.
-By default dump1090-fa provides compiled-in wisdom for [x86](wisdom.x86),
-[ARM 32-bit](wisdom.arm), and [ARM 64-bit](wisdom.aarch64). If the defaults
-are not suitable for your hardware or if you're building on a different
-architecture, you may want to generate your own external wisdom file.
-
-Ideally, to get stable results, you want to do this on an idle system
-with CPU frequency scaling disabled. Running the benchmarks will take
-some time (10s of minutes).
-
-### Package installs
-
-Run `/usr/share/dump1090-fa/generate-wisdom`. Wait.
-
-Follow the instructions to copy the resulting wisdom file to `/etc/dump1090-fa/wisdom.local`.
-
-Restart dump1090.
-
-### Manual installs
-
-Run `make wisdom.local`. Wait.
-
-Copy the resulting `wisdom.local` file somewhere appropriate.
-
-Update the dump1090-fa command-line options to include `--wisdom /path/to/wisdom.local`
