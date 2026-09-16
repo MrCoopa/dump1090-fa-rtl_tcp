@@ -170,10 +170,8 @@ else
         if [ -n "$LON" ]; then READSB_ARGS="$READSB_ARGS --lon $LON"; fi
         if [ -n "$MAX_RANGE" ]; then READSB_ARGS="$READSB_ARGS --max-range $MAX_RANGE"; fi
 
-        if [ "$AGGRESSIVE" = "1" ] || [ "$AGGRESSIVE" = "true" ] || [ "$FIX_2BIT" = "1" ] || [ "$FIX_2BIT" = "true" ]; then
-            READSB_ARGS="$READSB_ARGS --fix-2bit"
-        elif [ "$FIX" = "1" ] || [ "$FIX" = "true" ]; then
-            READSB_ARGS="$READSB_ARGS --fix"
+        if [ "$FIX" = "0" ] || [ "$FIX" = "false" ]; then
+            READSB_ARGS="$READSB_ARGS --no-fix"
         fi
 
         READSB_ARGS="$READSB_ARGS $@"
