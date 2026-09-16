@@ -8,6 +8,7 @@ RUN apk add --no-cache \
     libusb-compat-dev \
     ncurses-dev \
     zlib-dev \
+    zstd-dev \
     linux-headers \
     git \
     bash
@@ -46,6 +47,7 @@ RUN apk add --no-cache \
     libusb \
     ncurses-libs \
     zlib \
+    zstd-libs \
     curl \
     lighttpd \
     tzdata \
