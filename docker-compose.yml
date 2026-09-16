@@ -22,16 +22,16 @@ services:
       # Empfänger-Hardware: RTL-SDR Dongle Device ID 1
       - DEVICE_INDEX=1
 
-      # Standort: Hohenstein-Steckenroth
-      - LAT=50.1887
-      - LON=8.1244
-      - SITE_NAME=Hohenstein-Steckenroth
+      # Empfänger-Standort (optional, Koordinaten für Entfernungsberechnung und Rangemap)
+      - LAT=${LAT:-52.5200}
+      - LON=${LON:-13.4050}
+      - SITE_NAME=${SITE_NAME:-Meine-Station}
 
       # Rangemap: Tatsächliche Reichweite (Range Outline)
       - RANGE_OUTLINE_HOURS=24     # Zeitfenster für den Plot der Maximalreichweite in Stunden
 
-      # Rangemap: Theoretische Geländereichweite (HeyWhatsThat)
-      - HEYWHATSTHAT_ID=BAMIHDCX
+      # Rangemap: Theoretische Geländereichweite (HeyWhatsThat Panorama-ID)
+      # - HEYWHATSTHAT_ID=xxxxxx   # Optional: Eigene Panorama-ID von heywhatsthat.com eintragen
 
       # Empfänger-Tuning
       - GAIN=auto                  # auto (readsb Auto-Gain Algorithmus), max oder fixer Wert z.B. 49.6

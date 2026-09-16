@@ -21,3 +21,6 @@ debian/.debhelper
 debian/dump1090-fa*
 debian/debhelper-build-stamp
 debian/files
+.env
+.env.local
+graphs1090-data/
