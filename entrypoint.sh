@@ -71,7 +71,7 @@ fi
 # Configure and start graphs1090 (collectd + rrdtool)
 if [ "${ENABLE_GRAPHS1090}" != "0" ] && [ "${ENABLE_GRAPHS1090}" != "false" ]; then
     echo "[adsb-container] Configuring collectd for graphs1090..."
-    mkdir -p /etc/collectd /var/lib/collectd/rrd /run/graphs1090
+    mkdir -p /etc/collectd /var/lib/collectd/rrd/localhost /run/graphs1090
     cat << 'EOF' > /etc/collectd/collectd.conf
 Hostname "localhost"
 FQDNLookup false
@@ -100,23 +100,29 @@ LoadPlugin python
     Import "dump1090"
     <Module dump1090>
         <Instance localhost>
-            URL "http://localhost:8080/data"
+            URL "http://localhost:8080"
         </Instance>
+    </Module>
+    Import "system_stats"
+    <Module system_stats>
+        placeholder "true"
     </Module>
 </Plugin>
 EOF
 
+    # Configure graphs1090 defaults if specified
+    if [ -n "$GRAPHS1090_COLORSCHEME" ]; then
+        sed -i -e "s/^colorscheme=.*/colorscheme=${GRAPHS1090_COLORSCHEME}/" /etc/default/graphs1090 2>/dev/null || true
+    fi
+    if [ -n "$GRAPHS1090_RANGE" ]; then
+        sed -i -e "s/^range=.*/range=${GRAPHS1090_RANGE}/" /etc/default/graphs1090 2>/dev/null || true
+    fi
+
     echo "[adsb-container] Starting collectd..."
     collectd -C /etc/collectd/collectd.conf || echo "[adsb-container] Warning: Failed to start collectd"
 
-    echo "[adsb-container] Starting graphs1090 renderer daemon..."
-    (
-        sleep 40
-        while true; do
-            /usr/share/graphs1090/graphs1090.sh 2>/dev/null || true
-            sleep 60
-        done
-    ) &
+    echo "[adsb-container] Starting graphs1090 service daemon..."
+    /usr/share/graphs1090/service-graphs1090.sh &
 fi
 
 # If the first argument is a distinct executable (e.g. bash), execute it

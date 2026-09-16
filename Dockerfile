@@ -73,16 +73,13 @@ COPY --from=builder /src/readsb-src/readsb /usr/local/bin/readsb
 COPY --from=builder /src/readsb-src/viewadsb /usr/local/bin/viewadsb
 COPY --from=builder /src/public_html /usr/share/skyaware/html
 COPY --from=builder /src/tar1090-web /usr/local/share/tar1090/html
-COPY --from=builder /src/graphs1090-src/html /usr/share/graphs1090/html
-COPY --from=builder /src/graphs1090-src/dump1090.py /usr/share/graphs1090/dump1090.py
-COPY --from=builder /src/graphs1090-src/dump1090.db /usr/share/graphs1090/dump1090.db
-COPY --from=builder /src/graphs1090-src/graphs1090.sh /usr/share/graphs1090/graphs1090.sh
+COPY --from=builder /src/graphs1090-src /usr/share/graphs1090
 COPY --from=builder /src/graphs1090-src/default /etc/default/graphs1090
 COPY tar1090.sh /usr/local/bin/tar1090.sh
 COPY lighttpd.conf /etc/lighttpd/lighttpd.conf
 COPY entrypoint.sh /entrypoint.sh
 
-RUN chmod +x /usr/local/bin/tar1090.sh /entrypoint.sh /usr/share/graphs1090/graphs1090.sh && \
+RUN chmod +x /usr/local/bin/tar1090.sh /entrypoint.sh /usr/share/graphs1090/*.sh && \
     mkdir -p /usr/local/share/tar1090/aircraft_sil /run/graphs1090 /var/lib/collectd/rrd
 
 # Ports:
