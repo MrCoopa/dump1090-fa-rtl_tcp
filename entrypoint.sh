@@ -162,7 +162,13 @@ else
         # Direct RTL-SDR USB dongle with readsb
         READSB_ARGS="--device-type rtlsdr --net --write-json /run/adsb-data --range-outline-hours ${RANGE_OUTLINE_HOURS:-24}"
         if [ -n "$DEVICE_INDEX" ]; then READSB_ARGS="$READSB_ARGS --device $DEVICE_INDEX"; fi
-        if [ -n "$GAIN" ]; then READSB_ARGS="$READSB_ARGS --gain $GAIN"; fi
+        if [ -n "$GAIN" ]; then
+            if [ "$GAIN" = "max" ]; then
+                READSB_ARGS="$READSB_ARGS --gain 49.6"
+            else
+                READSB_ARGS="$READSB_ARGS --gain $GAIN"
+            fi
+        fi
         if [ "$ENABLE_AGC" = "1" ] || [ "$ENABLE_AGC" = "true" ]; then READSB_ARGS="$READSB_ARGS --enable-agc"; fi
         if [ -n "$FREQ" ]; then READSB_ARGS="$READSB_ARGS --freq $FREQ"; fi
         if [ -n "$PPM" ]; then READSB_ARGS="$READSB_ARGS --ppm $PPM"; fi

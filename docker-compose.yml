@@ -33,7 +33,7 @@ services:
       # - HEYWHATSTHAT_ID=XXXXXXXX
 
       # Empfänger-Tuning
-      - GAIN=max                   # max, auto oder dB (z.B. 49.6)
+      - GAIN=auto                  # auto (readsb Auto-Gain Algorithmus), max oder fixer Wert z.B. 49.6
       - PPM=0                      # Frequenzkorrektur
       - AGGRESSIVE=true            # 2-Bit CRC Korrektur (--fix-2bit)
 
