@@ -8,6 +8,8 @@ services:
     privileged: true
     devices:
       - /dev/bus/usb:/dev/bus/usb
+    volumes:
+      - ./graphs1090-data:/var/lib/collectd/rrd
     ports:
       - "8080:8080"   # tar1090 Webkarte (http://<raspi-ip>:8080/)
       - "30003:30003" # BaseStation / SBS Output

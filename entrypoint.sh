@@ -10,7 +10,7 @@ cleanup() {
 trap cleanup SIGTERM SIGINT SIGHUP SIGQUIT
 
 # Ensure shared run directories exist and setup unified symlinks
-mkdir -p /run/adsb-data /run/tar1090 /usr/local/share/tar1090/aircraft_sil
+mkdir -p /run/adsb-data /run/tar1090 /run/graphs1090 /var/lib/collectd/rrd /usr/local/share/tar1090/aircraft_sil
 rm -rf /run/dump1090-fa /run/readsb
 ln -s /run/adsb-data /run/dump1090-fa
 ln -s /run/adsb-data /run/readsb
@@ -66,6 +66,57 @@ if [ "${ENABLE_TAR1090}" != "0" ] && [ "${ENABLE_TAR1090}" != "false" ]; then
     export CHUNK_SIZE="${CHUNK_SIZE:-60}"
     export ENABLE_978="${ENABLE_978:-no}"
     /usr/local/bin/tar1090.sh /run/tar1090 /run/adsb-data &
+fi
+
+# Configure and start graphs1090 (collectd + rrdtool)
+if [ "${ENABLE_GRAPHS1090}" != "0" ] && [ "${ENABLE_GRAPHS1090}" != "false" ]; then
+    echo "[adsb-container] Configuring collectd for graphs1090..."
+    mkdir -p /etc/collectd /var/lib/collectd/rrd /run/graphs1090
+    cat << 'EOF' > /etc/collectd/collectd.conf
+Hostname "localhost"
+FQDNLookup false
+Interval 60
+
+LoadPlugin syslog
+<Plugin syslog>
+    LogLevel info
+</Plugin>
+
+TypesDB "/usr/share/collectd/types.db" "/usr/share/graphs1090/dump1090.db"
+
+LoadPlugin rrdtool
+<Plugin rrdtool>
+    DataDir "/var/lib/collectd/rrd"
+    RRATimespan 7200 86400 604800 2678400 31622400
+    RRARows 1200
+</Plugin>
+
+LoadPlugin table
+LoadPlugin python
+<Plugin python>
+    ModulePath "/usr/share/graphs1090"
+    LogTraces true
+    Interactive false
+    Import "dump1090"
+    <Module dump1090>
+        <Instance localhost>
+            URL "http://localhost:8080/data"
+        </Instance>
+    </Module>
+</Plugin>
+EOF
+
+    echo "[adsb-container] Starting collectd..."
+    collectd -C /etc/collectd/collectd.conf || echo "[adsb-container] Warning: Failed to start collectd"
+
+    echo "[adsb-container] Starting graphs1090 renderer daemon..."
+    (
+        sleep 40
+        while true; do
+            /usr/share/graphs1090/graphs1090.sh 2>/dev/null || true
+            sleep 60
+        done
+    ) &
 fi
 
 # If the first argument is a distinct executable (e.g. bash), execute it

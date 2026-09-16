@@ -30,6 +30,7 @@ RUN git clone --depth 1 https://github.com/wiedehopf/readsb.git /src/readsb-src 
 # Clone and prepare tar1090 and tar1090-db
 RUN git clone --depth 1 https://github.com/wiedehopf/tar1090.git /src/tar1090-src && \
     git clone --depth 1 https://github.com/wiedehopf/tar1090-db.git /src/tar1090-db && \
+    git clone --depth 1 https://github.com/wiedehopf/graphs1090.git /src/graphs1090-src && \
     mkdir -p /src/tar1090-web && \
     cp -r /src/tar1090-src/html/* /src/tar1090-web/ && \
     DB_VERSION=$(cd /src/tar1090-db && git rev-parse --short HEAD 2>/dev/null || echo "db") && \
@@ -55,7 +56,13 @@ RUN apk add --no-cache \
     jq \
     coreutils \
     gawk \
-    procps && \
+    procps \
+    collectd \
+    collectd-rrdtool \
+    collectd-python \
+    rrdtool \
+    font-dejavu \
+    python3 && \
     rm -rf /var/cache/apk/*
 
 WORKDIR /app
@@ -66,12 +73,17 @@ COPY --from=builder /src/readsb-src/readsb /usr/local/bin/readsb
 COPY --from=builder /src/readsb-src/viewadsb /usr/local/bin/viewadsb
 COPY --from=builder /src/public_html /usr/share/skyaware/html
 COPY --from=builder /src/tar1090-web /usr/local/share/tar1090/html
+COPY --from=builder /src/graphs1090-src/html /usr/share/graphs1090/html
+COPY --from=builder /src/graphs1090-src/dump1090.py /usr/share/graphs1090/dump1090.py
+COPY --from=builder /src/graphs1090-src/dump1090.db /usr/share/graphs1090/dump1090.db
+COPY --from=builder /src/graphs1090-src/graphs1090.sh /usr/share/graphs1090/graphs1090.sh
+COPY --from=builder /src/graphs1090-src/default /etc/default/graphs1090
 COPY tar1090.sh /usr/local/bin/tar1090.sh
 COPY lighttpd.conf /etc/lighttpd/lighttpd.conf
 COPY entrypoint.sh /entrypoint.sh
 
-RUN chmod +x /usr/local/bin/tar1090.sh /entrypoint.sh && \
-    mkdir -p /usr/local/share/tar1090/aircraft_sil
+RUN chmod +x /usr/local/bin/tar1090.sh /entrypoint.sh /usr/share/graphs1090/graphs1090.sh && \
+    mkdir -p /usr/local/share/tar1090/aircraft_sil /run/graphs1090 /var/lib/collectd/rrd
 
 # Ports:
 # 8080  - tar1090 & SkyAware Web Map
