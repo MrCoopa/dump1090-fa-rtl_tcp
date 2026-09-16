@@ -3,16 +3,17 @@ set -e
 
 # Cleanup on exit
 cleanup() {
-    echo "[dump1090-tar1090] Stopping background processes..."
+    echo "[adsb-container] Stopping background processes..."
     pkill -P $$ || true
     exit 0
 }
 trap cleanup SIGTERM SIGINT SIGHUP SIGQUIT
 
-# Ensure run directories exist
-mkdir -p /run/dump1090-fa
-mkdir -p /run/tar1090
-mkdir -p /usr/local/share/tar1090/aircraft_sil
+# Ensure shared run directories exist and setup unified symlinks
+mkdir -p /run/adsb-data /run/tar1090 /usr/local/share/tar1090/aircraft_sil
+rm -rf /run/dump1090-fa /run/readsb
+ln -s /run/adsb-data /run/dump1090-fa
+ln -s /run/adsb-data /run/readsb
 
 # If LAT and LON are provided, configure tar1090 config.js receiver location
 CONFIG_JS="/usr/local/share/tar1090/html/config.js"
@@ -40,100 +41,146 @@ if [ -f "$CONFIG_JS" ]; then
     fi
 fi
 
+# HeyWhatsThat Panorama Integration (upintheair.json)
+HW_ID="${HEYWHATSTHAT_ID:-$HEYWHATSTHAT_PANORAMA_ID}"
+if [ -n "$HW_ID" ]; then
+    UPINTHEAIR="/usr/local/share/tar1090/html/upintheair.json"
+    if [ ! -f "$UPINTHEAIR" ] || [ "$FORCE_HEYWHATSTHAT_DOWNLOAD" = "true" ] || [ "$FORCE_HEYWHATSTHAT_DOWNLOAD" = "1" ]; then
+        echo "[adsb-container] Downloading HeyWhatsThat terrain outline for ID: $HW_ID..."
+        ALTS="${HEYWHATSTHAT_ALTS:-3048,9144,12192}"
+        curl -sSL -m 30 "http://www.heywhatsthat.com/api/upintheair.json?id=${HW_ID}&refraction=0.25&alts=${ALTS}" -o "$UPINTHEAIR" \
+            && echo "[adsb-container] HeyWhatsThat upintheair.json successfully installed." \
+            || echo "[adsb-container] Warning: Failed to download HeyWhatsThat upintheair.json"
+    fi
+fi
+
 # Start lighttpd for web map (tar1090 & skyaware)
-echo "[dump1090-tar1090] Starting lighttpd webserver on port 8080..."
+echo "[adsb-container] Starting lighttpd webserver on port 8080..."
 lighttpd -f /etc/lighttpd/lighttpd.conf
 
 # Start tar1090 background history daemon
 if [ "${ENABLE_TAR1090}" != "0" ] && [ "${ENABLE_TAR1090}" != "false" ]; then
-    echo "[dump1090-tar1090] Starting tar1090 track history daemon..."
+    echo "[adsb-container] Starting tar1090 track history daemon..."
     export INTERVAL="${INTERVAL:-8}"
     export HISTORY_SIZE="${HISTORY_SIZE:-450}"
     export CHUNK_SIZE="${CHUNK_SIZE:-60}"
     export ENABLE_978="${ENABLE_978:-no}"
-    /usr/local/bin/tar1090.sh /run/tar1090 /run/dump1090-fa &
+    /usr/local/bin/tar1090.sh /run/tar1090 /run/adsb-data &
 fi
 
-# If the first argument is an executable not starting with '-', run it
-if [ $# -gt 0 ] && [ "${1#-}" = "$1" ] && [ "$1" != "dump1090" ]; then
+# If the first argument is a distinct executable (e.g. bash), execute it
+if [ $# -gt 0 ] && [ "${1#-}" = "$1" ] && [ "$1" != "dump1090" ] && [ "$1" != "readsb" ]; then
     exec "$@"
 fi
 
-ARGS=""
+# Determine decoder choice
+DECODER_CHOICE=$(echo "${DECODER:-auto}" | tr '[:upper:]' '[:lower:]')
+if [ "$1" = "dump1090" ]; then
+    DECODER_CHOICE="dump1090"
+    shift
+elif [ "$1" = "readsb" ]; then
+    DECODER_CHOICE="readsb"
+    shift
+fi
 
-# RTL-TCP configuration (IP and PORT variables)
+# Determine input source: RTL-TCP vs direct RTL-SDR
 RTL_TARGET_IP="${RTL_TCP_IP:-${RTL_TCP_HOST:-${IP}}}"
 RTL_TARGET_PORT="${RTL_TCP_PORT:-${PORT:-1234}}"
 
-if [ -n "$RTL_TARGET_IP" ]; then
-    case "$RTL_TARGET_IP" in
-        *:*)
-            ARGS="$ARGS --device-type rtltcp --net-rtl-tcp ${RTL_TARGET_IP}"
-            ;;
-        *)
-            ARGS="$ARGS --device-type rtltcp --net-rtl-tcp ${RTL_TARGET_IP}:${RTL_TARGET_PORT}"
-            ;;
-    esac
-else
-    ARGS="$ARGS --device-type rtlsdr"
-    if [ -n "$DEVICE_INDEX" ]; then
-        ARGS="$ARGS --device $DEVICE_INDEX"
+MAIN_PID=""
+
+if [ "$DECODER_CHOICE" = "dump1090" ]; then
+    echo "[adsb-container] Selected decoder: dump1090"
+    DUMP_ARGS=""
+    if [ -n "$RTL_TARGET_IP" ]; then
+        case "$RTL_TARGET_IP" in
+            *:*) DUMP_ARGS="$DUMP_ARGS --device-type rtltcp --net-rtl-tcp ${RTL_TARGET_IP}" ;;
+            *)   DUMP_ARGS="$DUMP_ARGS --device-type rtltcp --net-rtl-tcp ${RTL_TARGET_IP}:${RTL_TARGET_PORT}" ;;
+        esac
+    else
+        DUMP_ARGS="$DUMP_ARGS --device-type rtlsdr"
+        if [ -n "$DEVICE_INDEX" ]; then DUMP_ARGS="$DUMP_ARGS --device $DEVICE_INDEX"; fi
     fi
-fi
 
-# Gain configuration
-if [ -n "$GAIN" ]; then
-    ARGS="$ARGS --gain $GAIN"
-fi
+    if [ -n "$GAIN" ]; then DUMP_ARGS="$DUMP_ARGS --gain $GAIN"; fi
+    if [ "$ENABLE_AGC" = "1" ] || [ "$ENABLE_AGC" = "true" ]; then DUMP_ARGS="$DUMP_ARGS --enable-agc"; fi
+    if [ -n "$FREQ" ]; then DUMP_ARGS="$DUMP_ARGS --freq $FREQ"; fi
+    if [ -n "$PPM" ]; then DUMP_ARGS="$DUMP_ARGS --ppm $PPM"; fi
+    if [ -n "$LAT" ]; then DUMP_ARGS="$DUMP_ARGS --lat $LAT"; fi
+    if [ -n "$LON" ]; then DUMP_ARGS="$DUMP_ARGS --lon $LON"; fi
+    if [ -n "$MAX_RANGE" ]; then DUMP_ARGS="$DUMP_ARGS --max-range $MAX_RANGE"; fi
 
-# AGC
-if [ "$ENABLE_AGC" = "1" ] || [ "$ENABLE_AGC" = "true" ]; then
-    ARGS="$ARGS --enable-agc"
-fi
+    if [ "$AGGRESSIVE" = "1" ] || [ "$AGGRESSIVE" = "true" ] || [ "$FIX_2BIT" = "1" ] || [ "$FIX_2BIT" = "true" ]; then
+        DUMP_ARGS="$DUMP_ARGS --fix-2bit"
+    elif [ "$FIX" = "1" ] || [ "$FIX" = "true" ]; then
+        DUMP_ARGS="$DUMP_ARGS --fix"
+    fi
 
-# Frequency
-if [ -n "$FREQ" ]; then
-    ARGS="$ARGS --freq $FREQ"
-fi
-
-# PPM error correction
-if [ -n "$PPM" ]; then
-    ARGS="$ARGS --ppm $PPM"
-fi
-
-# Location
-if [ -n "$LAT" ]; then
-    ARGS="$ARGS --lat $LAT"
-fi
-if [ -n "$LON" ]; then
-    ARGS="$ARGS --lon $LON"
-fi
-if [ -n "$MAX_RANGE" ]; then
-    ARGS="$ARGS --max-range $MAX_RANGE"
-fi
-
-# Aggressive mode / CRC error correction
-if [ "$AGGRESSIVE" = "1" ] || [ "$AGGRESSIVE" = "true" ] || [ "$FIX_2BIT" = "1" ] || [ "$FIX_2BIT" = "true" ]; then
-    ARGS="$ARGS --fix-2bit"
-elif [ "$FIX" = "1" ] || [ "$FIX" = "true" ]; then
-    ARGS="$ARGS --fix"
-fi
-
-# Networking & JSON output for SkyAware and tar1090 web interfaces
-if [ "$NET" = "1" ] || [ "$NET" = "true" ] || [ -z "$NET" ]; then
     if [ "$NET" != "0" ] && [ "$NET" != "false" ]; then
-        ARGS="$ARGS --net --write-json /run/dump1090-fa"
+        DUMP_ARGS="$DUMP_ARGS --net --write-json /run/adsb-data"
+    fi
+
+    DUMP_ARGS="$DUMP_ARGS $@"
+    echo "[adsb-container] Starting dump1090: /usr/local/bin/dump1090 $DUMP_ARGS"
+    /usr/local/bin/dump1090 $DUMP_ARGS &
+    MAIN_PID=$!
+
+else
+    # readsb or auto
+    echo "[adsb-container] Selected decoder: readsb (Mode: ${DECODER_CHOICE})"
+
+    if [ -n "$RTL_TARGET_IP" ]; then
+        # RTL-TCP: dump1090 handles network RTL-TCP demodulation and feeds Beast stream to readsb
+        echo "[adsb-container] RTL-TCP source specified (${RTL_TARGET_IP}:${RTL_TARGET_PORT}). Starting dump1090 demodulator bridge..."
+        BRIDGE_ARGS=""
+        case "$RTL_TARGET_IP" in
+            *:*) BRIDGE_ARGS="--device-type rtltcp --net-rtl-tcp ${RTL_TARGET_IP}" ;;
+            *)   BRIDGE_ARGS="--device-type rtltcp --net-rtl-tcp ${RTL_TARGET_IP}:${RTL_TARGET_PORT}" ;;
+        esac
+        if [ -n "$GAIN" ]; then BRIDGE_ARGS="$BRIDGE_ARGS --gain $GAIN"; fi
+        if [ "$ENABLE_AGC" = "1" ] || [ "$ENABLE_AGC" = "true" ]; then BRIDGE_ARGS="$BRIDGE_ARGS --enable-agc"; fi
+        if [ -n "$FREQ" ]; then BRIDGE_ARGS="$BRIDGE_ARGS --freq $FREQ"; fi
+        if [ -n "$PPM" ]; then BRIDGE_ARGS="$BRIDGE_ARGS --ppm $PPM"; fi
+        if [ -n "$LAT" ]; then BRIDGE_ARGS="$BRIDGE_ARGS --lat $LAT"; fi
+        if [ -n "$LON" ]; then BRIDGE_ARGS="$BRIDGE_ARGS --lon $LON"; fi
+        if [ -n "$MAX_RANGE" ]; then BRIDGE_ARGS="$BRIDGE_ARGS --max-range $MAX_RANGE"; fi
+
+        /usr/local/bin/dump1090 $BRIDGE_ARGS --net --net-bo-port 30006 --net-ro-port 0 --net-sbs-port 0 --net-bi-port 0 --quiet &
+
+        READSB_ARGS="--net --net-only --net-connector 127.0.0.1,30006,beast_in"
+        READSB_ARGS="$READSB_ARGS --net-bo-port 30005 --net-ro-port 30002 --net-sbs-port 30003 --net-bi-port 30004"
+        READSB_ARGS="$READSB_ARGS --write-json /run/adsb-data --range-outline-hours ${RANGE_OUTLINE_HOURS:-24}"
+        if [ -n "$LAT" ]; then READSB_ARGS="$READSB_ARGS --lat $LAT"; fi
+        if [ -n "$LON" ]; then READSB_ARGS="$READSB_ARGS --lon $LON"; fi
+        if [ -n "$MAX_RANGE" ]; then READSB_ARGS="$READSB_ARGS --max-range $MAX_RANGE"; fi
+
+        READSB_ARGS="$READSB_ARGS $@"
+        echo "[adsb-container] Starting readsb in network mode: /usr/local/bin/readsb $READSB_ARGS"
+        /usr/local/bin/readsb $READSB_ARGS &
+        MAIN_PID=$!
+    else
+        # Direct RTL-SDR USB dongle with readsb
+        READSB_ARGS="--device-type rtlsdr --net --write-json /run/adsb-data --range-outline-hours ${RANGE_OUTLINE_HOURS:-24}"
+        if [ -n "$DEVICE_INDEX" ]; then READSB_ARGS="$READSB_ARGS --device $DEVICE_INDEX"; fi
+        if [ -n "$GAIN" ]; then READSB_ARGS="$READSB_ARGS --gain $GAIN"; fi
+        if [ "$ENABLE_AGC" = "1" ] || [ "$ENABLE_AGC" = "true" ]; then READSB_ARGS="$READSB_ARGS --enable-agc"; fi
+        if [ -n "$FREQ" ]; then READSB_ARGS="$READSB_ARGS --freq $FREQ"; fi
+        if [ -n "$PPM" ]; then READSB_ARGS="$READSB_ARGS --ppm $PPM"; fi
+        if [ -n "$LAT" ]; then READSB_ARGS="$READSB_ARGS --lat $LAT"; fi
+        if [ -n "$LON" ]; then READSB_ARGS="$READSB_ARGS --lon $LON"; fi
+        if [ -n "$MAX_RANGE" ]; then READSB_ARGS="$READSB_ARGS --max-range $MAX_RANGE"; fi
+
+        if [ "$AGGRESSIVE" = "1" ] || [ "$AGGRESSIVE" = "true" ] || [ "$FIX_2BIT" = "1" ] || [ "$FIX_2BIT" = "true" ]; then
+            READSB_ARGS="$READSB_ARGS --fix-2bit"
+        elif [ "$FIX" = "1" ] || [ "$FIX" = "true" ]; then
+            READSB_ARGS="$READSB_ARGS --fix"
+        fi
+
+        READSB_ARGS="$READSB_ARGS $@"
+        echo "[adsb-container] Starting readsb: /usr/local/bin/readsb $READSB_ARGS"
+        /usr/local/bin/readsb $READSB_ARGS &
+        MAIN_PID=$!
     fi
 fi
 
-# Append any arguments passed as CMD or extra args
-if [ "$1" = "dump1090" ]; then
-    shift
-fi
-ARGS="$ARGS $@"
-
-echo "[dump1090-tar1090] Starting dump1090: /usr/local/bin/dump1090 $ARGS"
-/usr/local/bin/dump1090 $ARGS &
-DUMP_PID=$!
-
-wait $DUMP_PID
+wait $MAIN_PID

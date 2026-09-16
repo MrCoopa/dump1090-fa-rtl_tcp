@@ -7,6 +7,7 @@ RUN apk add --no-cache \
     librtlsdr-dev \
     libusb-compat-dev \
     ncurses-dev \
+    zlib-dev \
     linux-headers \
     git \
     bash
@@ -18,6 +19,12 @@ COPY . /src
 RUN make clean && \
     make -j$(nproc) BLADERF=no HACKRF=no LIMESDR=no SOAPYSDR=no dump1090 view1090 && \
     strip /src/dump1090 /src/view1090
+
+# Clone and compile readsb
+RUN git clone --depth 1 https://github.com/wiedehopf/readsb.git /src/readsb-src && \
+    cd /src/readsb-src && \
+    make -j$(nproc) RTLSDR=yes OPTIMIZE="-O3" readsb viewadsb && \
+    strip /src/readsb-src/readsb /src/readsb-src/viewadsb
 
 # Clone and prepare tar1090 and tar1090-db
 RUN git clone --depth 1 https://github.com/wiedehopf/tar1090.git /src/tar1090-src && \
@@ -38,6 +45,8 @@ RUN apk add --no-cache \
     librtlsdr \
     libusb \
     ncurses-libs \
+    zlib \
+    curl \
     lighttpd \
     tzdata \
     bash \
@@ -51,6 +60,8 @@ WORKDIR /app
 
 COPY --from=builder /src/dump1090 /usr/local/bin/dump1090
 COPY --from=builder /src/view1090 /usr/local/bin/view1090
+COPY --from=builder /src/readsb-src/readsb /usr/local/bin/readsb
+COPY --from=builder /src/readsb-src/viewadsb /usr/local/bin/viewadsb
 COPY --from=builder /src/public_html /usr/share/skyaware/html
 COPY --from=builder /src/tar1090-web /usr/local/share/tar1090/html
 COPY tar1090.sh /usr/local/bin/tar1090.sh

@@ -14,16 +14,30 @@ services:
       - "30005:30005" # Beast Binary Output
       - "30002:30002" # Raw Output
     environment:
+      # Decoder-Auswahl: auto | readsb | dump1090 (Standard: auto)
+      # - auto:     Wählt readsb für maximale Reichweiten-Plots und moderne Performance.
+      #             Bei RTL-TCP wird dump1090 als Demodulator vorgeschaltet und die Rangemap von readsb genutzt.
+      # - readsb:   readsb als Haupt-Decoder / Aggregator mit Range-Outline-Unterstützung.
+      # - dump1090: Klassischer dump1090-fa Decoder.
+      - DECODER=auto
+
       # Empfänger-Hardware: RTL-SDR Dongle Device ID 1
       - DEVICE_INDEX=1
-      # Falls RTL-TCP Server verwendet wird (optional auskommentiert):
+      # Falls RTL-TCP Server verwendet wird (optional auskommentieren):
       # - RTL_TCP_IP=192.168.1.100
       # - RTL_TCP_PORT=1234
 
-      # Standort: Empfänger-Koordinaten (optional, z.B. für Distanzberechnung & Reichweitenringe)
+      # Standort: Empfänger-Koordinaten (wichtig für Distanzberechnung & Range-Outline Rangemap)
       # - LAT=52.5200
       # - LON=13.4050
       # - SITE_NAME=MeineStation
+
+      # Rangemap: Tatsächliche Reichweite (Range Outline)
+      - RANGE_OUTLINE_HOURS=24     # Zeitfenster für den Plot der Maximalreichweite in Stunden
+
+      # Rangemap: Theoretische Geländereichweite (HeyWhatsThat)
+      # Erstelle ein Panorama auf http://www.heywhatsthat.com und trage hier deine ID ein:
+      # - HEYWHATSTHAT_ID=XXXXXXXX
 
       # Empfänger-Tuning
       - GAIN=max                   # max, auto oder dB (z.B. 49.6)
