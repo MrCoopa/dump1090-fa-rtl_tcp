@@ -29,8 +29,7 @@ services:
       - RANGE_OUTLINE_HOURS=24     # Zeitfenster für den Plot der Maximalreichweite in Stunden
 
       # Rangemap: Theoretische Geländereichweite (HeyWhatsThat)
-      # Falls gewünscht, Panorama auf http://www.heywhatsthat.com erstellen und hier eintragen:
-      # - HEYWHATSTHAT_ID=XXXXXXXX
+      - HEYWHATSTHAT_ID=BAMIHDCX
 
       # Empfänger-Tuning
       - GAIN=auto                  # auto (readsb Auto-Gain Algorithmus), max oder fixer Wert z.B. 49.6
