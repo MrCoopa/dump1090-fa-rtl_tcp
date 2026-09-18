@@ -218,14 +218,16 @@ services:
 
 #### Real-World Reception Horizon & Polar Plot by Altitude (VRS-Style)
 The container continuously records the azimuth and maximum distance of all received aircraft:
-* **Overall Range Outline:** By default, `readsb` generates a single perimeter polygon across all altitudes (`outline.json`).
-* **Multi-Layer Polar Plot by Altitude:** When `ENABLE_POLAR_RANGE=true` (enabled by default), an integrated collector tracks aircraft positions binned into 4 altitude layers:
-  * 🟢 **0 – 9,999 ft** (Low altitude & approach)
-  * 🟢 **10,000 – 19,999 ft** (Mid-low cruise)
-  * 🔵 / 🟣 **20,000 – 29,999 ft** (Mid-high cruise)
-  * 🟣 / 🔴 **30,000+ ft** (High cruise)
-  These 4 layers are dynamically rendered on the **tar1090** map using **tar1090's official altitude color scale** (`ColorByAlt`), overlaying outer layers smoothly under inner layers.
-* **Persistence:** Polar range points are saved to `./graphs1090-data/polar_range_state.json` so your historical coverage survives container reboots.
+* **Two Independent Toggleable Overlays (in Layer Switcher under "Overlays"):**
+  * ☑️ **`actual range outline`**: The classic single-line perimeter polygon of maximum reception range across all altitudes (`outline.json`).
+  * ☑️ **`altitude range rings (by flight level)`**: The multi-layer polar plot binned into 4 altitude layers:
+    * 🟢 **0 – 9,999 ft** (Low altitude & approach)
+    * 🟢 **10,000 – 19,999 ft** (Mid-low cruise)
+    * 🔵 / 🟣 **20,000 – 29,999 ft** (Mid-high cruise)
+    * 🟣 / 🔴 **30,000+ ft** (High cruise)
+* **Semi-Transparent Shaded Polygons:** The altitude layers are rendered as filled polygons in **tar1090's official altitude color scale** (`ColorByAlt`), subtly shaded so that underlying map details (streets, cities, terrain) remain fully visible.
+* **Interactive Live Transparency Slider:** An opacity slider (`5%` to `80%`) appears right below the checkbox in the Layer Switcher menu. Adjustments apply in real time without reloading and are saved in `localStorage`.
+* **Persistence:** Polar range points are continuously saved to `./graphs1090-data/polar_range_state.json` so your historical coverage is immediately restored upon container restarts.
 * **Rolling Window:** Configurable via `POLAR_RANGE_HOURS=24` (or `RANGE_OUTLINE_HOURS=24`).
 
 #### Theoretical Terrain Coverage (HeyWhatsThat)
@@ -486,14 +488,16 @@ services:
 
 #### Reale Empfangsreichweite & Höhen-Polarplot (VRS-Style)
 Der Container zeichnet kontinuierlich auf, in welcher Richtung und Entfernung Flugzeuge tatsächlich empfangen wurden:
-* **Gesamt-Kontur:** Standardmäßig erzeugt `readsb` ein einzelnes Außen-Polygon (`outline.json`) über alle Höhen.
-* **4-Schichten Höhenplot nach Vorbild Virtual Radar Server (VRS):** Mit `ENABLE_POLAR_RANGE=true` (standardmäßig aktiv) ordnet ein Hintergrund-Collector alle empfangenen Flugzeuge 4 Höhenbändern zu:
-  * 🟢 **0 – 9.999 ft** (Boden- & Nahbereich)
-  * 🟢 **10.000 – 19.999 ft** (Niedrige Reiseflughöhe)
-  * 🔵 / 🟣 **20.000 – 29.999 ft** (Mittlere Reiseflughöhe)
-  * 🟣 / 🔴 **30.000+ ft** (Hohe Reiseflughöhe)
-  Diese 4 Schichten werden in der **tar1090-Karte** mit der **originalen tar1090-Höhenfarbskala** (`ColorByAlt`) als halbtransparente Polygone übereinandergelegt.
-* **Persistenz:** Die Daten werden in `./graphs1090-data/polar_range_state.json` gespeichert und bleiben bei Container-Neustarts erhalten.
+* **Zwei unabhängig wählbare Ebenen (im Ebenen-Menü unter „Overlays“):**
+  * ☑️ **`actual range outline`**: Die klassische einfarbige Gesamtkontur der maximalen Reichweite über alle Höhen hinweg (`outline.json`).
+  * ☑️ **`altitude range rings (by flight level)`**: Der 4-schichtige Höhen-Polarplot nach Vorbild Virtual Radar Server (VRS):
+    * 🟢 **0 – 9.999 ft** (Boden- & Nahbereich)
+    * 🟢 **10.000 – 19.999 ft** (Niedrige Reiseflughöhe)
+    * 🔵 / 🟣 **20.000 – 29.999 ft** (Mittlere Reiseflughöhe)
+    * 🟣 / 🔴 **30.000+ ft** (Hohe Reiseflughöhe)
+* **Halbtransparent ausgemalte Flächen:** Die Höhenzonen werden als echte Polygone mit sanfter, transparenter Flächenfüllung in der **originalen tar1090-Höhenfarbskala** (`ColorByAlt`) gerendert. Straßen, Städte und Flugspuren bleiben optimal lesbar.
+* **Stufenloser Transparenz-Schieberegler (Slider):** Direkt unter der Checkbox im Ebenen-Menü befindet sich ein Schieberegler (`5 %` bis `80 %`), mit dem du die Deckkraft der Flächenfüllung in Echtzeit anpassen kannst. Der Wert wird im Browser (`localStorage`) gespeichert.
+* **Persistenz:** Die Datenpunkte werden kontinuierlich in `./graphs1090-data/polar_range_state.json` gesichert, sodass dein Reichweitenprofil auch nach einem Neustart des Containers sofort vollständig erhalten bleibt.
 * **Zeitfenster:** Anpassbar über `POLAR_RANGE_HOURS=24` (oder `RANGE_OUTLINE_HOURS=24`).
 
 #### Theoretische Geländereichweite (HeyWhatsThat)
