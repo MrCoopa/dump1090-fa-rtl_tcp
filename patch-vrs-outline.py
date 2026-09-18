@@ -230,28 +230,55 @@ function drawPolarRangeJson() {
 
 function setupPolarOpacityControl() {
     let savedVal = localStorage.getItem('polar_range_opacity') || '25';
+
+    // 1. Create floating map widget (visible right on the screen above bottom-right legend)
+    if (!jQuery('#polar_opacity_widget').length) {
+        jQuery('body').append(
+            '<div id="polar_opacity_widget" style="position: absolute; bottom: 36px; right: 10px; z-index: 999; ' +
+            'background: rgba(20, 24, 30, 0.85); backdrop-filter: blur(6px); padding: 5px 10px; border-radius: 6px; ' +
+            'font-family: sans-serif; font-size: 11px; color: #eee; display: flex; align-items: center; gap: 8px; ' +
+            'box-shadow: 0 2px 10px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); user-select: none;">' +
+            '<span style="font-weight: 500;">🎨 Reichweiten-Farbe:</span>' +
+            '<input type="range" id="polar_opacity_slider" min="5" max="80" value="' + savedVal + '" ' +
+            'style="width: 85px; height: 14px; cursor: pointer; accent-color: #00d2be; vertical-align: middle;">' +
+            '<span id="polar_opacity_val" style="min-width: 28px; font-weight: bold; text-align: right; color: #fff;">' + savedVal + '%</span>' +
+            '</div>'
+        );
+    }
+
+    // 2. Handle slider input changes
     jQuery(document).on('input change', '#polar_opacity_slider', function() {
         let val = parseInt(this.value);
         jQuery('#polar_opacity_val').text(val + '%');
+        jQuery('#polar_switcher_slider').val(val);
         localStorage.setItem('polar_range_opacity', val);
         if (polarRangeLayer) {
             polarRangeLayer.setOpacity(val / 100);
         }
     });
+
+    // 3. Periodic sync with LayerSwitcher and visibility
     setInterval(function() {
-        let container = jQuery('.ol-layerswitcher');
-        if (container.length && !jQuery('#polar_opacity_slider').length) {
-            let targetLabel = container.find('label:contains("altitude range")').first();
-            if (targetLabel.length) {
-                targetLabel.parent().after(
-                    '<li id="polar_slider_li" style="padding-left: 24px; margin: 3px 0 6px 0; list-style: none;">' +
+        let panel = jQuery('.layer-switcher .panel, .layer-switcher');
+        if (panel.length && !jQuery('#polar_switcher_slider').length) {
+            let target = panel.find('label:contains("altitude range")').first();
+            if (target.length) {
+                target.parent().after(
+                    '<li id="polar_switcher_li" style="padding-left: 24px; margin: 3px 0 6px 0; list-style: none;">' +
                     '<div style="font-size: 11px; display: flex; align-items: center; gap: 6px; opacity: 0.95; color: #ddd;">' +
-                    '<span>Transparenz:</span>' +
-                    '<input type="range" id="polar_opacity_slider" min="5" max="80" value="' + savedVal + '" style="width: 75px; height: 12px; cursor: pointer; vertical-align: middle;">' +
-                    '<span id="polar_opacity_val" style="min-width: 28px; font-weight: bold;">' + savedVal + '%</span>' +
+                    '<span>Deckkraft:</span>' +
+                    '<input type="range" id="polar_switcher_slider" min="5" max="80" value="' + (localStorage.getItem('polar_range_opacity') || '25') + '" ' +
+                    'style="width: 75px; height: 12px; cursor: pointer; vertical-align: middle;" ' +
+                    'oninput="jQuery(\'#polar_opacity_slider\').val(this.value).trigger(\'input\');">' +
                     '</div></li>'
                 );
             }
+        }
+        if (polarRangeLayer) {
+            let isVis = polarRangeLayer.getVisible();
+            let widget = jQuery('#polar_opacity_widget');
+            if (isVis && widget.is(':hidden')) widget.fadeIn(200);
+            else if (!isVis && widget.is(':visible')) widget.fadeOut(200);
         }
     }, 1000);
 }
