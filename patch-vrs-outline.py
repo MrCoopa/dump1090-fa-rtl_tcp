@@ -246,10 +246,11 @@ function setupPolarOpacityControl() {
         );
     }
 
-    // 2. Handle slider input changes
-    jQuery(document).on('input change', '#polar_opacity_slider', function() {
+    // 2. Handle slider input changes for both sliders seamlessly
+    jQuery(document).on('input change', '#polar_opacity_slider, #polar_switcher_slider', function() {
         let val = parseInt(this.value);
         jQuery('#polar_opacity_val').text(val + '%');
+        jQuery('#polar_opacity_slider').val(val);
         jQuery('#polar_switcher_slider').val(val);
         localStorage.setItem('polar_range_opacity', val);
         if (polarRangeLayer) {
@@ -268,8 +269,7 @@ function setupPolarOpacityControl() {
                     '<div style="font-size: 11px; display: flex; align-items: center; gap: 6px; opacity: 0.95; color: #ddd;">' +
                     '<span>Opacity:</span>' +
                     '<input type="range" id="polar_switcher_slider" min="5" max="80" value="' + (localStorage.getItem('polar_range_opacity') || '25') + '" ' +
-                    'style="width: 75px; height: 12px; cursor: pointer; vertical-align: middle;" ' +
-                    'oninput="jQuery(\'#polar_opacity_slider\').val(this.value).trigger(\'input\');">' +
+                    'style="width: 75px; height: 12px; cursor: pointer; vertical-align: middle;">' +
                     '</div></li>'
                 );
             }
