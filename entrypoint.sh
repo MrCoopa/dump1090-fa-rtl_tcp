@@ -71,28 +71,88 @@ fi
 # Configure and start graphs1090 (collectd + rrdtool)
 if [ "${ENABLE_GRAPHS1090}" != "0" ] && [ "${ENABLE_GRAPHS1090}" != "false" ]; then
     echo "[adsb-container] Configuring collectd for graphs1090..."
-    mkdir -p /etc/collectd /var/lib/collectd/rrd/localhost /run/graphs1090
+    mkdir -p /etc/collectd /var/lib/collectd/rrd/localhost /run/graphs1090 /usr/share/graphs1090/data-symlink
+    ln -snf /run/adsb-data /usr/share/graphs1090/data-symlink/data
+
     cat << 'EOF' > /etc/collectd/collectd.conf
 Hostname "localhost"
 FQDNLookup false
 Interval 60
+Timeout 2
+ReadThreads 5
+WriteThreads 1
+
+TypesDB "/usr/share/graphs1090/dump1090.db" "/usr/share/collectd/types.db"
 
 LoadPlugin syslog
 <Plugin syslog>
     LogLevel info
 </Plugin>
 
-TypesDB "/usr/share/collectd/types.db" "/usr/share/graphs1090/dump1090.db"
-
 LoadPlugin rrdtool
+LoadPlugin table
+LoadPlugin interface
+LoadPlugin cpu
+LoadPlugin aggregation
+LoadPlugin match_regex
+LoadPlugin df
+LoadPlugin disk
+<LoadPlugin python>
+    Globals true
+</LoadPlugin>
+
 <Plugin rrdtool>
     DataDir "/var/lib/collectd/rrd"
-    RRATimespan 7200 86400 604800 2678400 31622400
-    RRARows 1200
+    RRARows 3000
+    RRATimespan 174000
+    RRATimespan 696000
+    RRATimespan 2784000
+    RRATimespan 16008000
+    RRATimespan 96048000
+    RRATimespan 576288000
+    XFF 0.8
 </Plugin>
 
-LoadPlugin table
-LoadPlugin python
+<Plugin "aggregation">
+    <Aggregation>
+        Plugin "cpu"
+        Type "cpu"
+        GroupBy "Host"
+        GroupBy "TypeInstance"
+        CalculateAverage true
+    </Aggregation>
+</Plugin>
+
+<Plugin "df">
+    MountPoint "/"
+    IgnoreSelected false
+</Plugin>
+
+<Plugin "interface">
+</Plugin>
+
+<Plugin table>
+    <Table "/sys/class/thermal/thermal_zone0/temp">
+        Instance localhost
+        Separator " "
+        <Result>
+            Type gauge
+            InstancePrefix "cpu_temp"
+            ValuesFrom 0
+        </Result>
+    </Table>
+</Plugin>
+
+<Plugin "disk">
+    Disk "mmcblk0"
+    Disk "mmcblk1"
+    Disk "sda"
+    Disk "sdb"
+    Disk "nvme0n1"
+    Disk "vda"
+    IgnoreSelected false
+</Plugin>
+
 <Plugin python>
     ModulePath "/usr/share/graphs1090"
     LogTraces true
@@ -100,7 +160,7 @@ LoadPlugin python
     Import "dump1090"
     <Module dump1090>
         <Instance localhost>
-            URL "http://localhost:8080"
+            URL "file:///usr/share/graphs1090/data-symlink"
         </Instance>
     </Module>
     Import "system_stats"
@@ -108,7 +168,50 @@ LoadPlugin python
         placeholder "true"
     </Module>
 </Plugin>
+
+<Chain "PostCache">
+    <Rule>
+        <Match regex>
+            Plugin "^cpu$"
+            PluginInstance "^[0-9]+$"
+        </Match>
+        <Target write>
+            Plugin "aggregation"
+        </Target>
+        Target stop
+    </Rule>
+    Target "write"
+</Chain>
 EOF
+
+    # Detect network interfaces
+    for path in /sys/class/net/*; do
+        [ -e "$path" ] || continue
+        iface=$(basename "$path")
+        case "$iface" in
+            lo) ;;
+            *)
+                sed -i -e "/<Plugin \"interface\">/a\\    Interface \"$iface\"" /etc/collectd/collectd.conf 2>/dev/null || true
+                ;;
+        esac
+    done
+
+    # Detect block devices
+    for path in /sys/class/block/*; do
+        [ -e "$path" ] || continue
+        d=$(basename "$path")
+        case "$d" in
+            loop*|ram*) ;;
+            *)
+                sed -i -e "/<Plugin \"disk\">/a\\    Disk \"$d\"" /etc/collectd/collectd.conf 2>/dev/null || true
+                ;;
+        esac
+    done
+
+    # If CPU thermal sensor is not accessible, remove Table block to prevent harmless warning
+    if [ ! -f /sys/class/thermal/thermal_zone0/temp ]; then
+        sed -i -e '/<Table "\/sys\/class\/thermal/,/<\/Table>/d' /etc/collectd/collectd.conf 2>/dev/null || true
+    fi
 
     # Configure graphs1090 defaults if specified
     if [ -n "$GRAPHS1090_COLORSCHEME" ]; then

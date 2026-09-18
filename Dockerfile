@@ -60,6 +60,9 @@ RUN apk add --no-cache \
     collectd \
     collectd-rrdtool \
     collectd-python \
+    collectd-disk \
+    collectd-df \
+    collectd-interface \
     rrdtool \
     font-dejavu \
     python3 && \
