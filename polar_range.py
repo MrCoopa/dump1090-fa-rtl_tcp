@@ -22,9 +22,10 @@ import argparse
 EARTH_RADIUS_NM = 3440.065  # Nautical miles
 EARTH_RADIUS_KM = 6371.0
 
-# 4 Altitude brackets (ceiling in feet)
+# 5 Altitude brackets (ceiling in feet)
 ALT_BRACKETS = [
-    {"alt": 10000, "label": "0 - 9,999 ft", "min": 0, "max": 9999},
+    {"alt": 5000, "label": "0 - 4,999 ft", "min": 0, "max": 4999},
+    {"alt": 10000, "label": "5,000 - 9,999 ft", "min": 5000, "max": 9999},
     {"alt": 20000, "label": "10,000 - 19,999 ft", "min": 10000, "max": 19999},
     {"alt": 30000, "label": "20,000 - 29,999 ft", "min": 20000, "max": 29999},
     {"alt": 40000, "label": "30,000+ ft", "min": 30000, "max": 999999},
@@ -124,12 +125,28 @@ class PolarRangeCollector:
             count = 0
             if "grid" in data:
                 raw_grid = data["grid"]
-                for b_idx in range(min(len(self.grid), len(raw_grid))):
+                if len(raw_grid) == 4 and len(self.grid) == 5:
+                    # Seamless migration from 4-bracket to 5-bracket grid
                     for deg in range(360):
-                        entry = raw_grid[b_idx][deg]
-                        if entry and (now - entry.get("time", 0) <= self.max_age_sec):
-                            self.grid[b_idx][deg] = entry
+                        if raw_grid[0][deg] and (now - raw_grid[0][deg].get("time", 0) <= self.max_age_sec):
+                            self.grid[1][deg] = raw_grid[0][deg]  # Seed 5k-10k
                             count += 1
+                        if raw_grid[1][deg] and (now - raw_grid[1][deg].get("time", 0) <= self.max_age_sec):
+                            self.grid[2][deg] = raw_grid[1][deg]  # 10k-20k
+                            count += 1
+                        if raw_grid[2][deg] and (now - raw_grid[2][deg].get("time", 0) <= self.max_age_sec):
+                            self.grid[3][deg] = raw_grid[2][deg]  # 20k-30k
+                            count += 1
+                        if raw_grid[3][deg] and (now - raw_grid[3][deg].get("time", 0) <= self.max_age_sec):
+                            self.grid[4][deg] = raw_grid[3][deg]  # 30k+
+                            count += 1
+                else:
+                    for b_idx in range(min(len(self.grid), len(raw_grid))):
+                        for deg in range(360):
+                            entry = raw_grid[b_idx][deg]
+                            if entry and (now - entry.get("time", 0) <= self.max_age_sec):
+                                self.grid[b_idx][deg] = entry
+                                count += 1
             print(f"[polar-range] Restored {count} polar range data points from {self.persist_file}", flush=True)
         except Exception as e:
             print(f"[polar-range] Could not load persisted state: {e}", flush=True)

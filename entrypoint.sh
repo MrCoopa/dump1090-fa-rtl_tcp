@@ -47,7 +47,7 @@ if [ -n "$HW_ID" ]; then
     UPINTHEAIR="/usr/local/share/tar1090/html/upintheair.json"
     if [ ! -f "$UPINTHEAIR" ] || [ "$FORCE_HEYWHATSTHAT_DOWNLOAD" = "true" ] || [ "$FORCE_HEYWHATSTHAT_DOWNLOAD" = "1" ]; then
         echo "[adsb-container] Downloading HeyWhatsThat terrain outline for ID: $HW_ID..."
-        ALTS="${HEYWHATSTHAT_ALTS:-3048,6096,9144,12192}"
+        ALTS="${HEYWHATSTHAT_ALTS:-1524,3048,6096,9144,12192}"
         curl -sSL -m 30 "http://www.heywhatsthat.com/api/upintheair.json?id=${HW_ID}&refraction=0.25&alts=${ALTS}" -o "$UPINTHEAIR" \
             && echo "[adsb-container] HeyWhatsThat upintheair.json successfully installed with altitudes: ${ALTS}m" \
             || echo "[adsb-container] Warning: Failed to download HeyWhatsThat upintheair.json"
