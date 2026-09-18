@@ -7,30 +7,36 @@
 [![Docker Support](https://img.shields.io/badge/docker-ready-2496ED.svg?logo=docker&logoColor=white)](#-docker-quickstart)
 [![License: GPL v2](https://img.shields.io/badge/license-GPL%20v2-green.svg)](LICENSE)
 
+**Languages / Sprachen:** [🇬🇧 English](#-english) • [🇩🇪 Deutsch](#-deutsch)
+
+---
+
+<a name="-english"></a>
+# 🇬🇧 English
+
 A high-performance **All-in-One ADS-B Receiver, Decoder, and Visualization Container** based on Alpine Linux.
 
 This project combines state-of-the-art decoders (**readsb** and **dump1090-fa with native RTL-TCP client support**) with the modern vector flight-tracking map **tar1090**, the bundled offline aircraft database **tar1090-db**, the long-term performance statistics suite **graphs1090**, and the classic **SkyAware** interface.
 
 ---
 
-## 📑 Table of Contents
+### 📑 Table of Contents (English)
 
 - [Key Features](#-key-features)
 - [Architecture & Data Flow](#-architecture--data-flow)
 - [Docker Quickstart](#-docker-quickstart)
-  - [Scenario A: Direct USB RTL-SDR Dongle (Raspberry Pi)](#scenario-a-direct-usb-rtl-sdr-dongle-raspberry-pi)
-  - [Scenario B: Remote SDR via RTL-TCP (Network)](#scenario-b-remote-sdr-via-rtl-tcp-network)
+  - [Scenario A: Direct USB RTL-SDR Dongle](#scenario-a-direct-usb-rtl-sdr-dongle-raspberry-pi)
+  - [Scenario B: Remote SDR via RTL-TCP](#scenario-b-remote-sdr-via-rtl-tcp-network)
 - [Web Interfaces (Port 8080)](#-web-interfaces-port-8080)
 - [Detailed Configuration (Environment Variables)](#-detailed-configuration-environment-variables)
 - [Network Ports & Data Streams](#-network-ports--data-streams)
 - [Range Analysis (Rangemap & HeyWhatsThat)](#-range-analysis-rangemap--heywhatsthat)
-- [Feeder Integration (ADS-B Exchange, FR24, etc.)](#-feeder-integration)
+- [Feeder Integration](#-feeder-integration)
 - [Troubleshooting & Tips](#-troubleshooting--tips)
-- [License](#-license)
 
 ---
 
-## 🚀 Key Features
+### 🚀 Key Features
 
 * **Dual-Decoder Engine:**
   * **readsb (Default):** Ultra-fast, low-memory C-based decoder supporting dynamic auto-gain, 2-bit CRC error correction, and real-time reception outlines (rangemaps).
@@ -50,7 +56,7 @@ This project combines state-of-the-art decoders (**readsb** and **dump1090-fa wi
 
 ---
 
-## 🏗 Architecture & Data Flow
+### 🏗 Architecture & Data Flow
 
 ```
 [ RTL-SDR USB Dongle ] ───► readsb ───┬─► /run/adsb-data/ ──┬─► Lighttpd (:8080) ──► tar1090 & SkyAware
@@ -62,11 +68,9 @@ This project combines state-of-the-art decoders (**readsb** and **dump1090-fa wi
 
 ---
 
-## 🐳 Docker Quickstart
+### 🐳 Docker Quickstart
 
-### Scenario A: Direct USB RTL-SDR Dongle (Raspberry Pi)
-
-For local operation with an RTL-SDR USB dongle connected directly to the host (e.g. RTL-SDR v3/v4, FlightAware Pro Stick):
+#### Scenario A: Direct USB RTL-SDR Dongle (Raspberry Pi)
 
 `docker-compose.yml`:
 ```yaml
@@ -102,11 +106,7 @@ Start the container:
 docker compose up -d
 ```
 
----
-
-### Scenario B: Remote SDR via RTL-TCP (Network)
-
-When the RTL-SDR is plugged into a remote machine running `rtl_tcp` on your local network:
+#### Scenario B: Remote SDR via RTL-TCP (Network)
 
 `docker-compose.yml`:
 ```yaml
@@ -136,9 +136,7 @@ services:
 
 ---
 
-## 🌐 Web Interfaces (Port 8080)
-
-All web dashboards and APIs are served through a single optimized Lighttpd instance:
+### 🌐 Web Interfaces (Port 8080)
 
 | URL | Description |
 |---|---|
@@ -150,14 +148,14 @@ All web dashboards and APIs are served through a single optimized Lighttpd insta
 
 ---
 
-## ⚙️ Detailed Configuration (Environment Variables)
+### ⚙️ Detailed Configuration (Environment Variables)
 
-### 1. Decoder Selection
+#### 1. Decoder Selection
 | Variable | Default | Options | Description |
 |---|---|---|---|
 | `DECODER` | `readsb` | `readsb`, `dump1090` | Primary decoder engine. `readsb` enables auto-gain, range outlines, and highest throughput. `dump1090` uses the classic FlightAware engine. |
 
-### 2. Tuner & Hardware Settings
+#### 2. Tuner & Hardware Settings
 | Variable | Default | Description |
 |---|---|---|
 | `DEVICE_INDEX` | `0` | USB device index or serial number for direct RTL-SDR dongle use. |
@@ -169,7 +167,7 @@ All web dashboards and APIs are served through a single optimized Lighttpd insta
 | `FREQ` | `1090000000` | Center frequency in Hz (default: 1090 MHz). |
 | `AGGRESSIVE` | `true` | Enable 2-bit CRC error correction (`--fix-2bit`). Increases aircraft detection at marginal signal levels. |
 
-### 3. Station Location & Maximum Range
+#### 3. Station Location & Maximum Range
 | Variable | Default | Description |
 |---|---|---|
 | `LAT` | `52.5200` | Latitude of your antenna in decimal degrees. Required for distance calculations, range rings, and reception outlines. |
@@ -178,14 +176,14 @@ All web dashboards and APIs are served through a single optimized Lighttpd insta
 | `MAX_RANGE` | `300` | Maximum plausible reception range in nautical miles (NM). Targets beyond this threshold are discarded. |
 | `RANGE_OUTLINE_HOURS` | `24` | Duration in hours for which readsb accumulates reception data to draw the real-world range outline polygon. |
 
-### 4. HeyWhatsThat (Terrain Horizon & Line of Sight)
+#### 4. HeyWhatsThat (Terrain Horizon & Line of Sight)
 | Variable | Default | Description |
 |---|---|---|
 | `HEYWHATSTHAT_ID` | - | Panorama ID generated at *[heywhatsthat.com](http://www.heywhatsthat.com/)*. Downloads and renders the theoretical terrain-limited line of sight on tar1090. |
 | `HEYWHATSTHAT_ALTS` | `3048,9144,12192` | Altitude contours in meters for the panorama rings (defaults to 10,000 ft, 30,000 ft, 40,000 ft). |
 | `FORCE_HEYWHATSTHAT_DOWNLOAD` | `0` | Force redownload of `upintheair.json` on container start (`1` or `true`). |
 
-### 5. tar1090 History & Track Replay
+#### 5. tar1090 History & Track Replay
 | Variable | Default | Description |
 |---|---|---|
 | `ENABLE_TAR1090` | `1` | Enable the tar1090 background track history daemon (`0` to disable). |
@@ -193,7 +191,7 @@ All web dashboards and APIs are served through a single optimized Lighttpd insta
 | `HISTORY_SIZE` | `450` | Number of snapshots stored in the ring buffer (450 * 8s = 3600s = 1 hour of history). |
 | `CHUNK_SIZE` | `60` | Aggregation size for compressed history chunk files. |
 
-### 6. graphs1090 (Metrics & Long-Term Stats)
+#### 6. graphs1090 (Metrics & Long-Term Stats)
 | Variable | Default | Description |
 |---|---|---|
 | `ENABLE_GRAPHS1090` | `1` | Enable `collectd` daemon and RRD graph generation (`0` to disable). |
@@ -202,9 +200,7 @@ All web dashboards and APIs are served through a single optimized Lighttpd insta
 
 ---
 
-## 📡 Network Ports & Data Streams
-
-The container exposes all standard ADS-B community data ports:
+### 📡 Network Ports & Data Streams
 
 | Port | Protocol | Format | Direction | Purpose |
 |---|---|---|---|---|
@@ -217,55 +213,292 @@ The container exposes all standard ADS-B community data ports:
 
 ---
 
-## 🗺 Range Analysis (Rangemap & HeyWhatsThat)
+### 🗺 Range Analysis (Rangemap & HeyWhatsThat)
 
-### Real-World Reception Horizon (Range Outline)
+#### Real-World Reception Horizon (Range Outline)
 Using `readsb`, the container continuously records azimuth and maximum distance of all valid position reports.
 * The resulting polygon is dynamically overlaid on the **tar1090** map.
 * Configure the rolling observation window using `RANGE_OUTLINE_HOURS=24` (or `48`, `168` for a full week).
 
-### Theoretical Terrain Coverage (HeyWhatsThat)
+#### Theoretical Terrain Coverage (HeyWhatsThat)
 To evaluate how mountains, buildings, or local topology obstruct your antenna:
 1. Visit [heywhatsthat.com](http://www.heywhatsthat.com/) and create a "New Panorama" at your antenna coordinates and height above ground.
 2. Note the generated ID from the URL (e.g. `ABCDEF12`).
-3. Set the environment variable in your `docker-compose.yml`:
-   ```yaml
-   environment:
-     - HEYWHATSTHAT_ID=ABCDEF12
-   ```
-4. Upon startup, the container automatically downloads the contour data and overlays the theoretical line-of-sight limits onto tar1090.
+3. Set the environment variable in your `docker-compose.yml`: `HEYWHATSTHAT_ID=ABCDEF12`
 
 ---
 
-## 🛰 Feeder Integration
+### 🛰 Feeder Integration
 
 To forward your receiver data to tracking networks like **ADS-B Exchange**, **Flightradar24**, or **RadarBox**, configure their client software to connect to port `30005` (Beast) of this container:
-
 * **Host:** IP address of your container / Raspberry Pi
 * **Port:** `30005`
 * **Protocol / Format:** `beast_reduced_plus_out` or standard `beast`
 
 ---
 
-## 🔧 Troubleshooting & Tips
+### 🔧 Troubleshooting & Tips
 
-### 1. USB RTL-SDR Dongle Not Detected
-If the host Linux kernel claims the device with the default DVB TV tuner driver, blacklist the kernel modules on the host system in `/etc/modprobe.d/blacklist-rtl.conf`:
-```bash
-blacklist dvb_usb_rtl28xxu
-blacklist rtl2832
-blacklist rtl2830
-```
-Then reboot the host machine.
+1. **USB RTL-SDR Dongle Not Detected:** Blacklist the default DVB TV tuner driver on the host in `/etc/modprobe.d/blacklist-rtl.conf`:
+   ```bash
+   blacklist dvb_usb_rtl28xxu
+   blacklist rtl2832
+   blacklist rtl2830
+   ```
+2. **graphs1090 Shows Empty Curves Initially:** `collectd` records data points every 60 seconds. It takes approximately **1 to 2 minutes** after container start before graphs render continuous lines.
+3. **Preserving Historical Graphs:** Ensure `./graphs1090-data:/var/lib/collectd/rrd` is mounted in `docker-compose.yml` to preserve long-term metrics across updates.
 
-### 2. graphs1090 Shows Empty / Missing Curves Initially
-`collectd` records data points every 60 seconds. It takes approximately **1 to 2 minutes** after starting the container before sufficient data points are available for graphs to draw the first continuous lines.
+---
+---
 
-### 3. Preserving Historical Graphs
-Ensure that the volume `./graphs1090-data:/var/lib/collectd/rrd` is mounted in `docker-compose.yml`. This keeps your long-term statistics (weeks, months, years) intact across container rebuilds or upgrades.
+<a name="-deutsch"></a>
+# 🇩🇪 Deutsch
+
+Ein hochperformanter **All-in-One ADS-B Empfangs-, Decoder- und Visualisierungs-Container** auf Basis von Alpine Linux.
+
+Dieses Projekt vereint die beiden führenden Decoder (**readsb** und **dump1090-fa mit nativem RTL-TCP Support**) mit der modernen Flugzeug-Vektorkarte **tar1090**, der Offline-Flugzeugdatenbank **tar1090-db**, dem Langzeit-Statistik-Dashboard **graphs1090** und der klassischen **SkyAware**-Oberfläche.
 
 ---
 
-## 📄 License
+### 📑 Inhaltsverzeichnis (Deutsch)
+
+- [Haupt-Features](#-haupt-features-de)
+- [Architektur & Funktionsweise](#-architektur--funktionsweise-de)
+- [Docker Quickstart](#-docker-quickstart-de)
+  - [Szenario A: Lokaler RTL-SDR USB-Dongle (Raspberry Pi)](#szenario-a-lokaler-rtl-sdr-usb-dongle-raspberry-pi-de)
+  - [Szenario B: Entferntes SDR via RTL-TCP (Netzwerk)](#szenario-b-entferntes-sdr-via-rtl-tcp-netzwerk-de)
+- [Web-Oberflächen (Port 8080)](#-web-oberfl%C3%A4chen-port-8080-de)
+- [Detaillierte Konfiguration (Umgebungsvariablen)](#-detaillierte-konfiguration-umgebungsvariablen-de)
+- [Netzwerkports & Schnittstellen](#-netzwerkports--schnittstellen-de)
+- [Reichweitenanalyse (Rangemap & HeyWhatsThat)](#-reichweitenanalyse-rangemap--heywhatsthat-de)
+- [Feeder-Integration](#-feeder-integration-de)
+- [Fehlerbehebung & Tipps](#-fehlerbehebung--tipps-de)
+
+---
+
+<a name="-haupt-features-de"></a>
+### 🚀 Haupt-Features
+
+* **Dual-Decoder-Engine:**
+  * **readsb (Standard):** Extrem schneller, nativer C-Decoder mit minimalem Speicherverbrauch, Auto-Gain und Echtzeit-Rangemaps.
+  * **dump1090-fa:** Original FlightAware-Decoder mit integrierter **RTL-TCP Client-Erweiterung**.
+  * **Hybride RTL-TCP Demodulator-Bridge:** Beim Empfang über ein Netzwerk-SDR (`RTL_TCP_IP`) übernimmt dump1090 automatisch die Demodulation und speist die Daten lokal via Beast-Stream in readsb ein. Sämtliche High-End-Features (Rangemap, Flugdatenbank, etc.) stehen somit auch für Netzwerk-SDRs zur Verfügung!
+* **Drei integrierte Weboberflächen auf Port `8080`:**
+  * **tar1090:** Modernste OpenLayers-Kartenansicht mit Flugverlauf, Replay, Silhouetten, Airline-Logos und Höhenprofilen.
+  * **graphs1090:** Detaillierte RRD-Performancestatistiken (Flugzeuge, Nachrichten/s, Reichweite, Signalpegel, CPU, Pi-Temperatur, RAM, Disk-I/O).
+  * **SkyAware:** Das klassische FlightAware Interface als alternative Ansicht.
+* **Flugzeug-Datenbank offline integriert:** Enthält `tar1090-db` mit Flugzeugtypen, Registrierungen, Betreiber-Logos und Silhouetten ohne externe Internetabfragen während des Betriebs.
+* **Track-Historie & Replay:** Konfigurierbarer Hintergrund-Daemon speichert Flugbewegungen im RAM/Disk für zeitversetztes Abspielen auf der Karte.
+* **Gelände- und Maximalreichweiten-Polygone:**
+  * Live-Aufzeichnung der tatsächlich empfangenen Maximalreichweite (Range Outline).
+  * Automatische Einbindung theoretischer Sichtlinien von *HeyWhatsThat*.
+* **Offene Feeder-Schnittstellen:** Volle Kompatibilität mit Beast (30005), BaseStation/SBS (30003), Raw (30002) und Beast-In (30004).
+* **Schlank & Ressourcenschonend:** Minimales Alpine-Linux-Image (~130 MB) mit Multi-Stage Build.
+
+---
+
+<a name="-architektur--funktionsweise-de"></a>
+### 🏗 Architektur & Funktionsweise
+
+```
+[ RTL-SDR USB-Dongle ] ───► readsb ───┬─► /run/adsb-data/ ──┬─► Lighttpd (:8080) ──► tar1090 & SkyAware
+                                      │   (aircraft.json)   │
+[ Remote rtl_tcp ] ──► dump1090-fa ───┘   (stats.json)      ├─► collectd / rrdtool ─► graphs1090
+                       (Bridge-Mode)                        │
+                                                            └─► TCP-Ports (:30005, :30003, :30002)
+```
+
+---
+
+<a name="-docker-quickstart-de"></a>
+### 🐳 Docker Quickstart
+
+#### Szenario A: Lokaler RTL-SDR USB-Dongle (Raspberry Pi)
+
+`docker-compose.yml`:
+```yaml
+services:
+  adsb:
+    build: .
+    image: dump1090-tar1090-readsb:latest
+    container_name: adsb-receiver
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    volumes:
+      - ./graphs1090-data:/var/lib/collectd/rrd
+    ports:
+      - "8080:8080"   # Webkarten & Dashboard
+      - "30003:30003" # BaseStation / SBS Output
+      - "30005:30005" # Beast Binary Output
+      - "30002:30002" # Raw Output
+    environment:
+      - DECODER=readsb
+      - DEVICE_INDEX=0             # Index des USB-Sticks (0, 1, ...)
+      - LAT=52.5200                # Dein Breitengrad
+      - LON=13.4050                # Dein Längengrad
+      - SITE_NAME=Meine-Station    # Stationsname auf der Karte
+      - GAIN=auto                  # auto (readsb Auto-Gain), max oder z.B. 49.6
+      - RANGE_OUTLINE_HOURS=24     # Zeitfenster für Reichweiten-Polygon in Stunden
+      - AGGRESSIVE=true            # 2-Bit CRC Korrektur
+```
+
+Starten mit:
+```bash
+docker compose up -d
+```
+
+#### Szenario B: Entferntes SDR via RTL-TCP (Netzwerk)
+
+`docker-compose.yml`:
+```yaml
+services:
+  adsb:
+    build: .
+    image: dump1090-tar1090-readsb:latest
+    container_name: adsb-receiver
+    restart: unless-stopped
+    volumes:
+      - ./graphs1090-data:/var/lib/collectd/rrd
+    ports:
+      - "8080:8080"
+      - "30003:30003"
+      - "30005:30005"
+      - "30002:30002"
+    environment:
+      - DECODER=readsb
+      - RTL_TCP_IP=192.168.1.50    # IP des rtl_tcp Servers
+      - RTL_TCP_PORT=1234          # Port (Standard: 1234)
+      - LAT=52.5200
+      - LON=13.4050
+      - SITE_NAME=Meine-Station
+      - GAIN=max
+      - RANGE_OUTLINE_HOURS=24
+```
+
+---
+
+<a name="-web-oberfl%C3%A4chen-port-8080-de"></a>
+### 🌐 Web-Oberflächen (Port 8080)
+
+| URL | Beschreibung |
+|---|---|
+| **`http://<IP>:8080/`** oder **`/tar1090/`** | **tar1090 Hauptkarte:** Flüssige Darstellung aller empfangenen Flugzeuge, Reichweiten-Ringe, Silhouetten, Filter und Track-Replay. |
+| **`http://<IP>:8080/graphs1090/`** | **graphs1090 Dashboard:** Performance-Metriken (Nachrichtenrate, Flugzeuge, Reichweite, Signalpegel, CPU, RAM, Pi-Temperatur, Disk I/O). |
+| **`http://<IP>:8080/skyaware/`** | **FlightAware SkyAware:** Die traditionelle Kartenoberfläche von FlightAware. |
+| **`http://<IP>:8080/data/aircraft.json`** | **REST JSON API:** Aktuelle Flugzeugliste in Echtzeit für eigene Skripte. |
+| **`http://<IP>:8080/data/stats.json`** | **REST JSON API:** Decoder- und Signalstatistiken. |
+
+---
+
+<a name="-detaillierte-konfiguration-umgebungsvariablen-de"></a>
+### ⚙️ Detaillierte Konfiguration (Umgebungsvariablen)
+
+#### 1. Decoder-Auswahl
+| Variable | Standard | Mögliche Werte | Beschreibung |
+|---|---|---|---|
+| `DECODER` | `readsb` | `readsb`, `dump1090` | Bestimmt den Hauptdecoder. `readsb` bietet erweiterte Rangemaps und Auto-Gain; `dump1090` ist der klassische Decoder. |
+
+#### 2. Empfänger-Hardware & Signal-Tuning
+| Variable | Standard | Beschreibung |
+|---|---|---|
+| `DEVICE_INDEX` | `0` | USB-Geräte-Index oder Seriennummer für direkten RTL-SDR USB-Betrieb. |
+| `RTL_TCP_IP` | - | IP-Adresse des entfernten `rtl_tcp` Servers (aktiviert automatisch die Demodulator-Bridge). |
+| `RTL_TCP_PORT` | `1234` | Port des entfernten `rtl_tcp` Servers. |
+| `GAIN` | `auto` / `max` | Tuner-Verstärkung: `auto` (dynamischer Auto-Gain in readsb), `max` (maximal möglicher Gain) oder fixer dB-Wert (z. B. `49.6`, `43.4`, `36.4`). |
+| `ENABLE_AGC` | `0` | Aktiviert die digitale automatische Verstärkungsregelung des RTL2832U (`1` oder `true`). |
+| `PPM` | `0` | Frequenzkorrektur des Oszillators in PPM. |
+| `FREQ` | `1090000000` | Empfangsfrequenz in Hz (Standard: 1090 MHz). |
+| `AGGRESSIVE` | `true` | Aktiviert die 2-Bit CRC-Fehlerkorrektur für Mode-S Nachrichten (`--fix-2bit`). Erhöht die Anzahl erkannter Flugzeuge bei schwachen Signalen. |
+
+#### 3. Stationsstandort & Reichweite
+| Variable | Standard | Beschreibung |
+|---|---|---|
+| `LAT` | `52.5200` | Breitengrad deiner Antenne (Dezimalgrad). Notwendig für Entfernungsberechnungen, Reichweitenringe und Rangemap. |
+| `LON` | `13.4050` | Längengrad deiner Antenne (Dezimalgrad). |
+| `SITE_NAME` | `Meine-Station` | Anzeigename deiner Empfangsstation auf der tar1090-Karte. |
+| `MAX_RANGE` | `300` | Maximale Reichweitengrenze in nautischen Meilen (NM). Signale außerhalb werden verworfen. |
+| `RANGE_OUTLINE_HOURS` | `24` | Zeitfenster in Stunden, für das readsb das reale Reichweiten-Polygon aufzeichnet und in tar1090 anzeigt. |
+
+#### 4. HeyWhatsThat (Geländeüberdeckung & Sichtlinien)
+| Variable | Standard | Beschreibung |
+|---|---|---|
+| `HEYWHATSTHAT_ID` | - | Panorama-ID von *[heywhatsthat.com](http://www.heywhatsthat.com/)*. Lädt die theoretische Geländesichtlinie deiner Antenne herunter und blendet sie als Kontur ein. |
+| `HEYWHATSTHAT_ALTS` | `3048,9144,12192` | Höhenschichten in Metern für das Panorama (Standard: 10.000 ft, 30.000 ft, 40.000 ft). |
+| `FORCE_HEYWHATSTHAT_DOWNLOAD` | `0` | Erzwingt den erneuten Download des Profils beim Containerstart (`1` oder `true`). |
+
+#### 5. tar1090 Track-Historie & Karten-Features
+| Variable | Standard | Beschreibung |
+|---|---|---|
+| `ENABLE_TAR1090` | `1` | Aktiviert den Hintergrunddienst für Flugpfad-Historie (`0` deaktiviert den Verlauf). |
+| `INTERVAL` | `8` | Intervall in Sekunden zwischen Track-Snapshots (z. B. `8` = alle 8 Sekunden ein Wegpunkt). |
+| `HISTORY_SIZE` | `450` | Anzahl der gespeicherten Snapshots im Ringspeicher (450 * 8 s = 3600 s = 1 Stunde Historie). |
+| `CHUNK_SIZE` | `60` | Bündelungsgröße für komprimierte Historien-Dateien. |
+
+#### 6. graphs1090 (Statistiken & Dashboards)
+| Variable | Standard | Beschreibung |
+|---|---|---|
+| `ENABLE_GRAPHS1090` | `1` | Aktiviert `collectd` und den RRD-Graph-Generator (`0` zum Deaktivieren). |
+| `GRAPHS1090_COLORSCHEME` | `default` | Farbschema der Graphen (z. B. `default`, `dark`, `light`). |
+| `GRAPHS1090_RANGE` | `nautical` | Entfernungseinheit für Reichweitengraphen (`nautical`, `metric` oder `statute`). |
+
+---
+
+<a name="-netzwerkports--schnittstellen-de"></a>
+### 📡 Netzwerkports & Schnittstellen
+
+| Port | Protokoll | Format | Typ | Verwendungszweck |
+|---|---|---|---|---|
+| **`8080`** | TCP / HTTP | Web / JSON | Out | tar1090, graphs1090, SkyAware & JSON APIs |
+| **`30005`** | TCP | Beast Binary | Out | Standard-Feed für ADS-B Exchange, FR24, FlightAware, VRS |
+| **`30003`** | TCP | BaseStation / SBS | Out | Klartext-Meldungen für Logging und Auswerteskripte |
+| **`30002`** | TCP | Raw / AVR | Out | Rohe Hex-Nachrichten |
+| **`30004`** | TCP | Beast Binary | In | Einspeisung externer Beast-Daten in den lokalen Decoder |
+| **`30001`** | TCP | Raw / AVR | In | Einspeisung roher AVR-Daten |
+
+---
+
+<a name="-reichweitenanalyse-rangemap--heywhatsthat-de"></a>
+### 🗺 Reichweitenanalyse (Rangemap & HeyWhatsThat)
+
+#### Reale Empfangsreichweite (Range Outline)
+Durch `readsb` zeichnet der Container kontinuierlich auf, in welcher Richtung und Entfernung Flugzeuge tatsächlich empfangen wurden.
+* In **tar1090** wird dieses Polygon automatisch als farbige Konturlinie dargestellt.
+* Das Zeitfenster lässt sich über `RANGE_OUTLINE_HOURS=24` (oder z. B. `48`, `168` für eine Woche) festlegen.
+
+#### Theoretische Geländereichweite (HeyWhatsThat)
+1. Erstelle auf [heywhatsthat.com](http://www.heywhatsthat.com/) ein Panorama an deinem Antennenstandort mit deiner Antennenhöhe über Grund.
+2. Kopiere die generierte ID aus der Adresszeile (z. B. `ABCDEF12`).
+3. Trage die Variable in deiner `docker-compose.yml` ein: `HEYWHATSTHAT_ID=ABCDEF12`
+
+---
+
+<a name="-feeder-integration-de"></a>
+### 🛰 Feeder-Integration
+
+Verbinde Feed-Clients von **ADS-B Exchange**, **Flightradar24** oder **RadarBox** einfach mit Port `30005` (Beast) dieses Containers:
+* **Host:** IP-Adresse deines Containers / Raspberry Pi
+* **Port:** `30005`
+* **Format:** `beast_reduced_plus_out` oder `beast`
+
+---
+
+<a name="-fehlerbehebung--tipps-de"></a>
+### 🔧 Fehlerbehebung & Tipps
+
+1. **USB RTL-SDR Dongle wird nicht erkannt:** Erstelle auf dem Host `/etc/modprobe.d/blacklist-rtl.conf`:
+   ```bash
+   blacklist dvb_usb_rtl28xxu
+   blacklist rtl2832
+   blacklist rtl2830
+   ```
+   Danach Host neu starten.
+2. **graphs1090 zeigt kurz nach Start leere Diagramme:** `collectd` speichert Messwerte im 60-Sekunden-Takt. Nach **1 bis 2 Minuten** erscheinen die ersten Linien.
+3. **Persistenz der Langzeitdaten:** Stelle sicher, dass `./graphs1090-data:/var/lib/collectd/rrd` gemountet ist, damit Messwerte über Wochen und Monate erhalten bleiben.
+
+---
+
+## 📄 License / Lizenz
 
 This project is licensed under the **GNU General Public License v2.0 (GPL-2.0)**. See the [LICENSE](LICENSE) file for details.
