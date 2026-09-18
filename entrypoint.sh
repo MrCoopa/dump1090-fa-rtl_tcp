@@ -336,7 +336,7 @@ else
         MAIN_PID=$!
     else
         # Direct RTL-SDR USB dongle with readsb
-        READSB_ARGS="--device-type rtlsdr --net --write-json /run/adsb-data --range-outline-hours ${RANGE_OUTLINE_HOURS:-24}"
+        READSB_ARGS="--device-type rtlsdr --net --net-bo-port 30005 --net-bi-port 30004 --net-ro-port 30002 --net-sbs-port 30003 --write-json /run/adsb-data --range-outline-hours ${RANGE_OUTLINE_HOURS:-24}"
         if [ -n "$DEVICE_INDEX" ]; then READSB_ARGS="$READSB_ARGS --device $DEVICE_INDEX"; fi
         if [ -n "$GAIN" ]; then
             if [ "$GAIN" = "max" ]; then
