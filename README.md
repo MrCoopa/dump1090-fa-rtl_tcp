@@ -1,9 +1,9 @@
 # dump1090-tar1090-readsb
 
 [![Upstream: FlightAware dump1090](https://img.shields.io/badge/upstream-FlightAware%2Fdump1090-blue.svg)](https://github.com/flightaware/dump1090)
-[![Decoder: readsb](https://img.shields.io/badge/decoder-readsb-green.svg)](https://github.com/wiedehopf/readsb)
-[![Web UI: tar1090](https://img.shields.io/badge/webui-tar1090-orange.svg)](https://github.com/wiedehopf/tar1090)
-[![Metrics: graphs1090](https://img.shields.io/badge/metrics-graphs1090-purple.svg)](https://github.com/wiedehopf/graphs1090)
+[![Decoder: wiedehopf/readsb](https://img.shields.io/badge/decoder-wiedehopf%2Freadsb-green.svg)](https://github.com/wiedehopf/readsb)
+[![Web UI: wiedehopf/tar1090](https://img.shields.io/badge/webui-wiedehopf%2Ftar1090-orange.svg)](https://github.com/wiedehopf/tar1090)
+[![Metrics: wiedehopf/graphs1090](https://img.shields.io/badge/metrics-wiedehopf%2Fgraphs1090-purple.svg)](https://github.com/wiedehopf/graphs1090)
 [![Docker Support](https://img.shields.io/badge/docker-ready-2496ED.svg?logo=docker&logoColor=white)](#-docker-quickstart)
 [![License: GPL v2](https://img.shields.io/badge/license-GPL%20v2-green.svg)](LICENSE)
 
@@ -33,6 +33,7 @@ This project combines state-of-the-art decoders (**readsb** and **dump1090-fa wi
 - [Range Analysis (Rangemap & HeyWhatsThat)](#-range-analysis-rangemap--heywhatsthat)
 - [Feeder Integration](#-feeder-integration)
 - [Troubleshooting & Tips](#-troubleshooting--tips)
+- [Credits & Acknowledgments](#-credits--acknowledgments)
 
 ---
 
@@ -249,6 +250,19 @@ To forward your receiver data to tracking networks like **ADS-B Exchange**, **Fl
 3. **Preserving Historical Graphs:** Ensure `./graphs1090-data:/var/lib/collectd/rrd` is mounted in `docker-compose.yml` to preserve long-term metrics across updates.
 
 ---
+
+### 🙏 Credits & Acknowledgments
+
+This all-in-one container builds upon the groundbreaking work of leading open-source contributors in the ADS-B community:
+
+* **[FlightAware](https://github.com/flightaware/dump1090):** The creators and maintainers of **`dump1090-fa`** and **`SkyAware`**, setting the industry standard for ADS-B Mode-S demodulation and decoding (originally pioneered by Salvatore Sanfilippo / *antirez*).
+* **[wiedehopf](https://github.com/wiedehopf):** The brilliant developer and maintainer behind the modern ADS-B tracking ecosystem:
+  * **[`readsb`](https://github.com/wiedehopf/readsb):** High-performance Mode-S decoder with auto-gain, range outline polygons, and minimal resource usage.
+  * **[`tar1090`](https://github.com/wiedehopf/tar1090):** The feature-rich, ultra-smooth web tracking map with track history and replay.
+  * **[`tar1090-db`](https://github.com/wiedehopf/tar1090-db):** The comprehensive offline aircraft database and silhouette catalog.
+  * **[`graphs1090`](https://github.com/wiedehopf/graphs1090):** The complete performance statistics and RRD graphing suite.
+
+---
 ---
 
 <a name="-deutsch"></a>
@@ -273,6 +287,7 @@ Dieses Projekt vereint die beiden führenden Decoder (**readsb** und **dump1090-
 - [Reichweitenanalyse (Rangemap & HeyWhatsThat)](#-reichweitenanalyse-rangemap--heywhatsthat-de)
 - [Feeder-Integration](#-feeder-integration-de)
 - [Fehlerbehebung & Tipps](#-fehlerbehebung--tipps-de)
+- [Danksagung & Credits](#-danksagung--credits-de)
 
 ---
 
@@ -496,6 +511,20 @@ Verbinde Feed-Clients von **ADS-B Exchange**, **Flightradar24** oder **RadarBox*
    Danach Host neu starten.
 2. **graphs1090 zeigt kurz nach Start leere Diagramme:** `collectd` speichert Messwerte im 60-Sekunden-Takt. Nach **1 bis 2 Minuten** erscheinen die ersten Linien.
 3. **Persistenz der Langzeitdaten:** Stelle sicher, dass `./graphs1090-data:/var/lib/collectd/rrd` gemountet ist, damit Messwerte über Wochen und Monate erhalten bleiben.
+
+---
+
+<a name="-danksagung--credits-de"></a>
+### 🙏 Danksagung & Credits (Die Entwickler)
+
+Dieser All-in-One Container basiert auf der fantastischen Arbeit führender Open-Source-Entwickler der ADS-B Community:
+
+* **[FlightAware](https://github.com/flightaware/dump1090):** Die Erfinder und Betreiber von **`dump1090-fa`** und der **`SkyAware`**-Oberfläche (aufbauend auf dem ursprünglichen dump1090 von Salvatore Sanfilippo / *antirez*), die seit Jahren den Goldstandard für Mode-S Demodulation und Dekodierung setzen.
+* **[wiedehopf](https://github.com/wiedehopf):** Für seine herausragenden Entwicklungen und unermüdliche Pflege des modernen ADS-B Stacks:
+  * **[`readsb`](https://github.com/wiedehopf/readsb):** Der extrem performante C-Decoder mit Auto-Gain, Reichweiten-Polygonen (Rangemaps) und minimalem Speicherbedarf.
+  * **[`tar1090`](https://github.com/wiedehopf/tar1090):** Die hochmoderne, flüssige Webkarte mit Verlaufshistorie, Replay und Filtern.
+  * **[`tar1090-db`](https://github.com/wiedehopf/tar1090-db):** Die umfangreiche Offline-Datenbank für Flugzeugtypen, Betreiberlogos und Silhouetten.
+  * **[`graphs1090`](https://github.com/wiedehopf/graphs1090):** Das detaillierte RRDtool-Statistik- und Performance-Dashboard.
 
 ---
 
