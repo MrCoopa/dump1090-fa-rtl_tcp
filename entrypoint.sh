@@ -81,7 +81,8 @@ if [ "${ENABLE_POLAR_RANGE}" != "0" ] && [ "${ENABLE_POLAR_RANGE}" != "false" ];
         --output /run/adsb-data/polar_range.json \
         --persist /var/lib/collectd/rrd/polar_range_state.json \
         --hours "${POLAR_RANGE_HOURS:-${RANGE_OUTLINE_HOURS:-24}}" \
-        --interval "${POLAR_RANGE_INTERVAL:-2.0}" &
+        --interval "${POLAR_RANGE_INTERVAL:-2.0}" \
+        --min-points "${POLAR_RANGE_MIN_POINTS:-2}" &
 fi
 
 # Configure and start graphs1090 (collectd + rrdtool)

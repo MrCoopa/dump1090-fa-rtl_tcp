@@ -227,6 +227,7 @@ The container continuously records the azimuth and maximum distance of all recei
     * 🔵 **20,000 – 29,999 ft** (Upper cruise - Blue)
     * 🟣 **30,000+ ft** (High altitude long-range jet cruise - Magenta / Violet)
 * **Semi-Transparent Shaded Polygons:** The altitude layers are rendered as filled polygons in **tar1090's official altitude color scale** (`ColorByAlt`), subtly shaded so that underlying map details (streets, cities, terrain) remain fully visible.
+* **Corrupted Packet & Ghost Filter (Consecutive Points Validation):** To prevent isolated bad packets (e.g. CRC false-positives or bitflips) from creating artificial spikes on the map, a target must confirm at least **2 consecutive plausible position reports** (`POLAR_RANGE_MIN_POINTS=2`) with physical speed verification (< 1200 kts) before expanding the polar outline.
 * **Interactive Live Transparency Slider:** An opacity slider (`5%` to `80%`) appears right below the checkbox in the Layer Switcher menu. Adjustments apply in real time without reloading and are saved in `localStorage`.
 * **Persistence:** Polar range points are continuously saved to `./graphs1090-data/polar_range_state.json` so your historical coverage is immediately restored upon container restarts.
 * **Rolling Window:** Configurable via `POLAR_RANGE_HOURS=24` (or `RANGE_OUTLINE_HOURS=24`).
@@ -553,6 +554,7 @@ Der Container zeichnet kontinuierlich auf, in welcher Richtung und Entfernung Fl
     * 🔵 **20.000 – 29.999 ft** (Hohe Reiseflughöhen - Blau)
     * 🟣 **30.000+ ft** (Maximale Reiseflughöhe Langstrecken-Jets - Magenta / Violett)
 * **Halbtransparent ausgemalte Flächen:** Die Höhenzonen werden als echte Polygone mit sanfter, transparenter Flächenfüllung in der **originalen tar1090-Höhenfarbskala** (`ColorByAlt`) gerendert. Straßen, Städte und Flugspuren bleiben optimal lesbar.
+* **Filter gegen fehlerhafte Pakete & Geisterflugzeuge (Aufeinanderfolgende Messpunkte):** Um zu verhindern, dass vereinzelte fehlerhafte ADS-B-Pakete (z. B. Bitflips oder fehlerhafte CRC-Prüfsummen) unnatürliche Zacken im Reichweitenplot erzeugen, müssen für ein Flugzeug mindestens **2 aufeinanderfolgende, physikalisch plausible Positionsmeldungen** (`POLAR_RANGE_MIN_POINTS=2`) mit realistischer Geschwindigkeit (< 1200 kts) empfangen werden, bevor das Reichweitenpolygon an dieser Stelle erweitert wird.
 * **Stufenloser Transparenz-Schieberegler (Slider):** Direkt unter der Checkbox im Ebenen-Menü befindet sich ein Schieberegler (`5 %` bis `80 %`), mit dem du die Deckkraft der Flächenfüllung in Echtzeit anpassen kannst. Der Wert wird im Browser (`localStorage`) gespeichert.
 * **Persistenz:** Die Datenpunkte werden kontinuierlich in `./graphs1090-data/polar_range_state.json` gesichert, sodass dein Reichweitenprofil auch nach einem Neustart des Containers sofort vollständig erhalten bleibt.
 * **Zeitfenster:** Anpassbar über `POLAR_RANGE_HOURS=24` (oder `RANGE_OUTLINE_HOURS=24`).

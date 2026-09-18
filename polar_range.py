@@ -67,7 +67,7 @@ def destination_point(lat, lon, dist_nm, bearing_deg):
     return (round(math.degrees(lat2), 6), round(math.degrees(lon2), 6))
 
 class PolarRangeCollector:
-    def __init__(self, data_dir, output_file, persist_file, hours=24.0, lat=None, lon=None, interval=2.0):
+    def __init__(self, data_dir, output_file, persist_file, hours=24.0, lat=None, lon=None, interval=2.0, min_points=2):
         self.data_dir = data_dir
         self.output_file = output_file
         self.persist_file = persist_file
@@ -76,9 +76,15 @@ class PolarRangeCollector:
         self.site_lat = lat
         self.site_lon = lon
         self.interval = float(interval)
+        self.min_points = max(1, int(min_points))
         self.running = True
 
-        # 4 brackets x 360 degrees
+        # Track history for consecutive measurement validation:
+        # self.track_history[hex] = {"lat": lat, "lon": lon, "time": epoch, "consecutive": int}
+        self.track_history = {}
+        self.last_track_prune = 0.0
+
+        # 5 brackets x 360 degrees
         # grid[bracket_idx][bearing_deg] = {"dist": dist_nm, "lat": lat, "lon": lon, "time": epoch_sec}
         self.grid = [[None for _ in range(360)] for _ in range(len(ALT_BRACKETS))]
         self.load_persisted_state()
@@ -184,6 +190,10 @@ class PolarRangeCollector:
 
         updated = 0
         for p in planes:
+            hex_code = p.get("hex")
+            if not hex_code:
+                continue
+
             # Check position
             lat2 = p.get("lat")
             lon2 = p.get("lon")
@@ -217,6 +227,34 @@ class PolarRangeCollector:
             if dist < 0.1 or dist > 400.0:
                 continue
 
+            # Verify consecutive plausible measurement points to eliminate corrupted single packets
+            prev = self.track_history.get(hex_code)
+            if prev is not None:
+                dt = now - prev["time"]
+                if 0.1 <= dt <= 30.0:
+                    step_nm = haversine_distance_nm(prev["lat"], prev["lon"], lat2, lon2)
+                    speed_kts = (step_nm / dt) * 3600.0
+                    if speed_kts <= 1200.0:
+                        consecutive = prev["consecutive"] + 1
+                    else:
+                        # Impossible speed jump / teleportation -> reset streak
+                        consecutive = 1
+                else:
+                    consecutive = 1
+            else:
+                consecutive = 1
+
+            self.track_history[hex_code] = {
+                "lat": lat2,
+                "lon": lon2,
+                "time": now,
+                "consecutive": consecutive
+            }
+
+            # Only expand the polar range if at least min_points consecutive reports are confirmed!
+            if consecutive < self.min_points:
+                continue
+
             bearing = initial_bearing(lat1, lon1, lat2, lon2)
             current = self.grid[b_idx][bearing]
 
@@ -228,6 +266,12 @@ class PolarRangeCollector:
                     "time": now
                 }
                 updated += 1
+
+        # Periodic prune of inactive tracks (older than 5 minutes) every 60s
+        if now - self.last_track_prune >= 60.0:
+            cutoff = now - 300.0
+            self.track_history = {h: v for h, v in self.track_history.items() if v["time"] > cutoff}
+            self.last_track_prune = now
 
         return updated
 
@@ -338,7 +382,7 @@ class PolarRangeCollector:
             self.write_output_json(data)
 
 def test_collector():
-    """Self-test with dummy aircraft data."""
+    """Self-test with dummy aircraft data verifying consecutive point filtering."""
     import tempfile, shutil
     tmpdir = tempfile.mkdtemp(prefix="polar_test_")
     try:
@@ -355,7 +399,8 @@ def test_collector():
             persist_file=persist_file,
             hours=24.0,
             lat=site_lat,
-            lon=site_lon
+            lon=site_lon,
+            min_points=2
         )
 
         # Generate fake aircraft at various altitudes and bearings
@@ -363,7 +408,7 @@ def test_collector():
         for deg in range(0, 360, 15):
             # Low altitude (5,000 ft) at 30 NM
             p_lat, p_lon = destination_point(site_lat, site_lon, 30.0, deg)
-            aircraft.append({"hex": f"low_{deg:03d}", "lat": p_lat, "lon": p_lon, "alt_baro": 5000})
+            aircraft.append({"hex": f"low_{deg:03d}", "lat": p_lat, "lon": p_lon, "alt_baro": 4500})
 
             # Mid altitude (25,000 ft) at 90 NM
             p_lat2, p_lon2 = destination_point(site_lat, site_lon, 90.0, deg)
@@ -373,12 +418,41 @@ def test_collector():
             p_lat3, p_lon3 = destination_point(site_lat, site_lon, 160.0, deg)
             aircraft.append({"hex": f"hi_{deg:03d}", "lat": p_lat3, "lon": p_lon3, "alt_baro": 38000})
 
-        ac_file = os.path.join(data_dir, "aircraft.json")
-        with open(ac_file, "w", encoding="utf-8") as f:
-            json.dump({"now": time.time(), "aircraft": aircraft}, f)
+        # Inject a corrupted ghost packet with a random hex at 350 NM
+        ghost_lat, ghost_lon = destination_point(site_lat, site_lon, 350.0, 45)
+        aircraft.append({"hex": "ghost_bad_01", "lat": ghost_lat, "lon": ghost_lon, "alt_baro": 35000})
 
-        updated = collector.update_aircraft(time.time())
-        res = collector.prune_and_build_json(time.time())
+        ac_file = os.path.join(data_dir, "aircraft.json")
+        t0 = time.time()
+        with open(ac_file, "w", encoding="utf-8") as f:
+            json.dump({"now": t0, "aircraft": aircraft}, f)
+
+        # First pass: valid aircraft have consecutive=1 -> grid should NOT expand yet
+        updated1 = collector.update_aircraft(t0)
+        assert updated1 == 0, f"Expected 0 grid updates on 1st report, got {updated1}"
+
+        # Second pass (2s later): valid aircraft send 2nd consecutive point -> grid expands!
+        # Corrupted ghost packet does NOT send a 2nd point.
+        t1 = t0 + 2.0
+        aircraft_pass2 = []
+        for p in aircraft:
+            if p["hex"] == "ghost_bad_01":
+                continue  # Ghost packet was a one-off error!
+            # Move plane slightly (e.g. 0.2 NM)
+            aircraft_pass2.append(p)
+
+        with open(ac_file, "w", encoding="utf-8") as f:
+            json.dump({"now": t1, "aircraft": aircraft_pass2}, f)
+
+        updated2 = collector.update_aircraft(t1)
+        assert updated2 > 0, "Expected grid updates on 2nd consecutive report"
+
+        # Verify ghost packet did not contaminate bearing 45 high altitude
+        bracket_high = 4  # 30k+ ft
+        entry_b45 = collector.grid[bracket_high][45]
+        assert entry_b45 is None or entry_b45["dist"] < 250.0, f"Ghost packet leaked into grid: {entry_b45}"
+
+        res = collector.prune_and_build_json(t1)
         collector.write_output_json(res)
         collector.save_persisted_state()
 
@@ -387,7 +461,7 @@ def test_collector():
         with open(out_file, "r") as f:
             j = json.load(f)
             assert len(j.get("rings", [])) >= 3, f"Expected at least 3 rings, got {len(j.get('rings', []))}"
-            print(f"Self-test SUCCESS! Generated {len(j['rings'])} rings, points: {[len(r['points']) for r in j['rings']]}")
+            print(f"Self-test SUCCESS! Validated {len(j['rings'])} rings and verified single ghost packets are 100% filtered out!")
 
     finally:
         shutil.rmtree(tmpdir)
@@ -399,6 +473,7 @@ if __name__ == "__main__":
     parser.add_argument("--persist", default="/var/lib/collectd/rrd/polar_range_state.json", help="Path to persist state file")
     parser.add_argument("--hours", type=float, default=float(os.environ.get("POLAR_RANGE_HOURS", "24.0")), help="Rolling hours window")
     parser.add_argument("--interval", type=float, default=2.0, help="Polling interval in seconds")
+    parser.add_argument("--min-points", type=int, default=int(os.environ.get("POLAR_RANGE_MIN_POINTS", "2")), help="Minimum consecutive plausible reports before expanding outline")
     parser.add_argument("--lat", type=float, default=None, help="Receiver latitude")
     parser.add_argument("--lon", type=float, default=None, help="Receiver longitude")
     parser.add_argument("--test", action="store_true", help="Run self-test and exit")
@@ -416,7 +491,8 @@ if __name__ == "__main__":
         hours=args.hours,
         lat=args.lat,
         lon=args.lon,
-        interval=args.interval
+        interval=args.interval,
+        min_points=args.min_points
     )
 
     def handle_signal(sig, frame):
