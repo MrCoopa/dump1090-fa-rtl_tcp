@@ -12,8 +12,9 @@ services:
       - ./graphs1090-data:/var/lib/collectd/rrd
     ports:
       - "8080:8080" # tar1090 Webkarte (http://<raspi-ip>:8080/)
-      - "30003:30003" # BaseStation / SBS Output
+      - "30004:30004" # Beast Binary Input (für MLAT-Rückkanal von Feedern)
       - "30005:30005" # Beast Binary Output
+      - "30003:30003" # BaseStation / SBS Output
       - "30002:30002" # Raw Output
     environment:
       # Decoder-Auswahl: readsb für Maximalreichweiten-Plots (Rangemap)
