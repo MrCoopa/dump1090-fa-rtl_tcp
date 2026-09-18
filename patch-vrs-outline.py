@@ -238,7 +238,7 @@ function setupPolarOpacityControl() {
             'background: rgba(20, 24, 30, 0.85); backdrop-filter: blur(6px); padding: 5px 10px; border-radius: 6px; ' +
             'font-family: sans-serif; font-size: 11px; color: #eee; display: flex; align-items: center; gap: 8px; ' +
             'box-shadow: 0 2px 10px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); user-select: none;">' +
-            '<span style="font-weight: 500;">🎨 Reichweiten-Farbe:</span>' +
+            '<span style="font-weight: 500;">🎨 Range Opacity:</span>' +
             '<input type="range" id="polar_opacity_slider" min="5" max="80" value="' + savedVal + '" ' +
             'style="width: 85px; height: 14px; cursor: pointer; accent-color: #00d2be; vertical-align: middle;">' +
             '<span id="polar_opacity_val" style="min-width: 28px; font-weight: bold; text-align: right; color: #fff;">' + savedVal + '%</span>' +
@@ -266,7 +266,7 @@ function setupPolarOpacityControl() {
                 target.parent().after(
                     '<li id="polar_switcher_li" style="padding-left: 24px; margin: 3px 0 6px 0; list-style: none;">' +
                     '<div style="font-size: 11px; display: flex; align-items: center; gap: 6px; opacity: 0.95; color: #ddd;">' +
-                    '<span>Deckkraft:</span>' +
+                    '<span>Opacity:</span>' +
                     '<input type="range" id="polar_switcher_slider" min="5" max="80" value="' + (localStorage.getItem('polar_range_opacity') || '25') + '" ' +
                     'style="width: 75px; height: 12px; cursor: pointer; vertical-align: middle;" ' +
                     'oninput="jQuery(\'#polar_opacity_slider\').val(this.value).trigger(\'input\');">' +
