@@ -8,9 +8,24 @@ def patch_file(file_path):
         print(f"Warning: function drawOutlineJson not found in {file_path}")
         return False
 
-    # 1. Insert polarRange layer registration into layers array alongside actualOutline
+    orig_len = len(content)
+
+    # 1. Declare global variables right where actualOutline is declared (BEFORE map initialization)
+    if "let polarRangeFeatures" not in content:
+        content, c0 = re.subn(
+            r'let actualOutline = \{\};',
+            'let actualOutline = {};\nlet polarRangeFeatures = null;\nlet polarRangeLayer = null;',
+            content
+        )
+        if c0 == 0:
+            content = "let polarRangeFeatures = null;\nlet polarRangeLayer = null;\n" + content
+
+    # 2. Insert polarRange layer registration into layers array alongside actualOutline
     layer_patch = """        layers.push(actualOutline.layer);
 
+        if (!polarRangeFeatures) {
+            polarRangeFeatures = new ol.source.Vector();
+        }
         polarRangeLayer = new ol.layer.Vector({
             name: 'polarRangeAltitude',
             type: 'overlay',
@@ -31,11 +46,8 @@ def patch_file(file_path):
         if count1 == 0:
             print(f"Warning: Could not patch layers.push in {file_path}")
 
-    # 2. Add style helper, drawUpintheair, and split drawOutlineJson into classic and polar
-    outline_patch = """let polarRangeFeatures = new ol.source.Vector();
-let polarRangeLayer = null;
-
-function getTar1090AltStyle(alt) {
+    # 3. Replace drawUpintheair with filled polygon styling using tar1090 altitude colors
+    upintheair_replacement = """function getTar1090AltStyle(alt) {
     let h = 20, s = 88, l = 45;
     if (typeof altitudeColor === 'function') {
         try {
@@ -89,8 +101,15 @@ function drawUpintheair() {
         calcOutlineFeatures.addFeature(feature);
     }
 }
+"""
+    content, c_up = re.subn(
+        r'function drawUpintheair\(\)\s*\{[\s\S]*?\n\}\n',
+        upintheair_replacement,
+        content
+    )
 
-function drawClassicOutlineJson() {
+    # 4. Replace drawOutlineJson with classic single outline + separate polar altitude range
+    outline_replacement = """function drawClassicOutlineJson() {
     let request = jQuery.ajax({ url: actualOutline.url,
         cache: false,
         timeout: actualOutline.refresh,
@@ -128,10 +147,13 @@ function drawClassicOutlineJson() {
 }
 
 function drawPolarRangeJson() {
+    if (!polarRangeFeatures) {
+        polarRangeFeatures = new ol.source.Vector();
+    }
     jQuery.ajax({
         url: 'data/polar_range.json',
         cache: false,
-        timeout: actualOutline.refresh,
+        timeout: 15000,
         dataType: 'json'
     }).done(function(data) {
         if (data && data.rings && data.rings.length > 0) {
@@ -157,19 +179,22 @@ function drawPolarRangeJson() {
 function drawOutlineJson() {
     drawClassicOutlineJson();
     drawPolarRangeJson();
-}"""
+}
+"""
+    content, c_out = re.subn(
+        r'function drawOutlineJson\(\)\s*\{[\s\S]*?\n\}\n',
+        outline_replacement,
+        content
+    )
 
-    pattern = r'(function drawUpintheair\(\)\s*\{[\s\S]*?\n\}\n\n)?(let polarRangeFeatures[\s\S]*?\n\n)?function drawOutlineJson\(\)\s*\{[\s\S]*?\n\}\n'
-    content, count2 = re.subn(pattern, outline_patch + '\n', content)
-
-    if count2 > 0:
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-        print(f"Successfully patched {file_path} with separate overlay layers and tar1090 altitude colors!")
-        return True
-    else:
-        print(f"Pattern matching drawOutlineJson failed in {file_path}")
+    if len(content) < (orig_len - 5000):
+        print(f"Error: Truncation guard triggered for {file_path}! Original: {orig_len}, New: {len(content)}")
         return False
+
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print(f"Successfully patched {file_path} (Original: {orig_len}b -> Patched: {len(content)}b)!")
+    return True
 
 if __name__ == "__main__":
     for target in sys.argv[1:]:
