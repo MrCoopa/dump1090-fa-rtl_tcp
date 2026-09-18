@@ -238,12 +238,67 @@ To evaluate how mountains, buildings, or local topology obstruct your antenna:
 
 ---
 
-### 🛰 Feeder Integration
+### 🛰 Feeder Integration & MLAT Return Feed
 
-To forward your receiver data to tracking networks like **ADS-B Exchange**, **Flightradar24**, or **RadarBox**, configure their client software to connect to port `30005` (Beast) of this container:
-* **Host:** IP address of your container / Raspberry Pi
-* **Port:** `30005`
-* **Protocol / Format:** `beast_reduced_plus_out` or standard `beast`
+This container exposes standard ADS-B network streams and supports **bi-directional feeding** (sending local ADS-B data out, and receiving calculated MLAT aircraft back into your local map):
+
+* **Beast Binary Output (Port `30005`):** Connect feeder clients (Flightradar24, FlightAware, RadarBox, OpenSky, etc.) to port `30005`.
+* **Beast Binary Input (Port `30004`):** Feeders supporting MLAT (e.g., *airplanes.live*, *adsb.fi*, *ADS-B Exchange*) push calculated Multilateration aircraft positions back into this port so they are rendered live on your own `tar1090` map!
+
+#### Recommended Companion Container: [docker-airplaneslive-feeder](https://github.com/MrCoopa/docker-airplaneslive-feeder)
+
+You can run the dedicated, lightweight `airplanes.live` feeder (Debian 13 Trixie Slim) directly alongside this container in `docker-compose.yml`:
+
+```yaml
+services:
+  adsb:
+    build: .
+    image: dump1090-tar1090-readsb:latest
+    container_name: adsb-receiver
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    volumes:
+      - ./graphs1090-data:/var/lib/collectd/rrd
+    ports:
+      - "8080:8080"
+      - "30004:30004"   # Beast Input (Incoming MLAT return feed)
+      - "30005:30005"   # Beast Output
+      - "30003:30003"
+      - "30002:30002"
+    environment:
+      - DECODER=readsb
+      - DEVICE_INDEX=1
+      - LAT=${LAT:-50.1234}
+      - LON=${LON:-8.1234}
+      - SITE_NAME=${SITE_NAME:-My-Station}
+      - ENABLE_POLAR_RANGE=true
+      - POLAR_RANGE_HOURS=24
+
+  # airplanes.live ADS-B & MLAT Feeder:
+  airplaneslive:
+    build: https://github.com/MrCoopa/docker-airplaneslive-feeder.git#main
+    container_name: airplaneslive-feeder
+    restart: unless-stopped
+    depends_on:
+      - adsb
+    environment:
+      - BEAST_HOST=adsb
+      - BEAST_PORT=30005
+      - LAT=${LAT:-50.1234}
+      - LON=${LON:-8.1234}
+      - ALT=${ALT:-180m}
+      - USER=${SITE_NAME:-My-Station}
+      - ENABLE_MLAT=true
+      - MLAT_RESULTS_HOST=adsb
+      - MLAT_RESULTS_PORT=30004
+    volumes:
+      - airplaneslive-data:/var/lib/airplaneslive
+
+volumes:
+  airplaneslive-data:
+```
 
 ---
 
@@ -508,12 +563,67 @@ Der Container zeichnet kontinuierlich auf, in welcher Richtung und Entfernung Fl
 ---
 
 <a name="-feeder-integration-de"></a>
-### 🛰 Feeder-Integration
+### 🛰 Feeder-Integration & MLAT-Rückkanal
 
-Verbinde Feed-Clients von **ADS-B Exchange**, **Flightradar24** oder **RadarBox** einfach mit Port `30005` (Beast) dieses Containers:
-* **Host:** IP-Adresse deines Containers / Raspberry Pi
-* **Port:** `30005`
-* **Format:** `beast_reduced_plus_out` oder `beast`
+Dieser Container stellt standardisierte Netzwerk-Datenströme bereit und unterstützt **bidirektionales Feeden** (Senden lokaler ADS-B Daten und gleichzeitiges Empfangen berechneter MLAT-Flugzeuge):
+
+* **Beast Binary Output (Port `30005`):** Verbinde externe Feeder (Flightradar24, FlightAware, RadarBox, etc.) mit Port `30005`.
+* **Beast Binary Input (Port `30004`):** Feeder mit MLAT-Unterstützung (*airplanes.live*, *adsb.fi*, etc.) speisen berechnete Multilaterations-Positionen über diesen Port direkt zurück in dein lokales `tar1090`!
+
+#### Empfohlener Begleit-Container: [docker-airplaneslive-feeder](https://github.com/MrCoopa/docker-airplaneslive-feeder)
+
+Du kannst den leichtgewichtigen `airplanes.live`-Feeder (Debian 13 Trixie Slim) direkt als zweiten Dienst in deine `docker-compose.yml` einbinden:
+
+```yaml
+services:
+  adsb:
+    build: .
+    image: dump1090-tar1090-readsb:latest
+    container_name: adsb-receiver
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    volumes:
+      - ./graphs1090-data:/var/lib/collectd/rrd
+    ports:
+      - "8080:8080"
+      - "30004:30004"   # Beast Input (MLAT-Rückkanal auf deine Karte)
+      - "30005:30005"   # Beast Output
+      - "30003:30003"
+      - "30002:30002"
+    environment:
+      - DECODER=readsb
+      - DEVICE_INDEX=1
+      - LAT=${LAT:-50.1234}
+      - LON=${LON:-8.1234}
+      - SITE_NAME=${SITE_NAME:-Meine-Station}
+      - ENABLE_POLAR_RANGE=true
+      - POLAR_RANGE_HOURS=24
+
+  # airplanes.live ADS-B & MLAT Feeder:
+  airplaneslive:
+    build: https://github.com/MrCoopa/docker-airplaneslive-feeder.git#main
+    container_name: airplaneslive-feeder
+    restart: unless-stopped
+    depends_on:
+      - adsb
+    environment:
+      - BEAST_HOST=adsb
+      - BEAST_PORT=30005
+      - LAT=${LAT:-50.1234}
+      - LON=${LON:-8.1234}
+      - ALT=${ALT:-180m}
+      - USER=${SITE_NAME:-Meine-Station}
+      - ENABLE_MLAT=true
+      - MLAT_RESULTS_HOST=adsb
+      - MLAT_RESULTS_PORT=30004
+    volumes:
+      - airplaneslive-data:/var/lib/airplaneslive
+
+volumes:
+  airplaneslive-data:
+```
 
 ---
 
