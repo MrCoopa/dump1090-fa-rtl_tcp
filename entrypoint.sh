@@ -56,7 +56,7 @@ fi
 
 # Ensure VRS-style colored filled polygons are active in tar1090
 if [ -f /usr/local/bin/patch-vrs-outline.py ]; then
-    python3 /usr/local/bin/patch-vrs-outline.py /usr/local/share/tar1090/html/script*.js 2>/dev/null || true
+    python3 /usr/local/bin/patch-vrs-outline.py /usr/local/share/tar1090/html/script*.js /usr/local/share/tar1090/html/libs/ol-custom*.js 2>/dev/null || true
 fi
 
 # Start lighttpd for web map (tar1090 & skyaware)

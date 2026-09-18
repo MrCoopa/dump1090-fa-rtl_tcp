@@ -1,16 +1,35 @@
 import re, sys, glob
 
-def patch_file(file_path):
+def patch_ol_custom(file_path):
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    if "Polygon:il" in content:
+        return True
+
+    new_content, count = re.subn(
+        r'lE=\{LineString:(\w+),Point:(\w+),MultiPoint:(\w+)\}',
+        r'lE={LineString:\1,Point:\2,MultiPoint:\3,Polygon:il}',
+        content
+    )
+
+    if count > 0:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+        print(f"Successfully enabled ol.geom.Polygon in {file_path}!")
+        return True
+    return False
+
+def patch_script_js(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
     if "function drawOutlineJson" not in content:
-        print(f"Warning: function drawOutlineJson not found in {file_path}")
         return False
 
     orig_len = len(content)
 
-    # 1. Declare global variables right where actualOutline is declared (BEFORE map initialization)
+    # 1. Declare global variables right where actualOutline is declared
     if "let polarRangeFeatures" not in content:
         content, c0 = re.subn(
             r'let actualOutline = \{\};',
@@ -20,12 +39,13 @@ def patch_file(file_path):
         if c0 == 0:
             content = "let polarRangeFeatures = null;\nlet polarRangeLayer = null;\n" + content
 
-    # 2. Insert polarRange layer registration into layers array alongside actualOutline
+    # 2. Insert polarRange layer registration with opacity from localStorage & slider support
     layer_patch = """        layers.push(actualOutline.layer);
 
         if (!polarRangeFeatures) {
             polarRangeFeatures = new ol.source.Vector();
         }
+        let savedPolarOpacity = parseFloat(localStorage.getItem('polar_range_opacity') || '25');
         polarRangeLayer = new ol.layer.Vector({
             name: 'polarRangeAltitude',
             type: 'overlay',
@@ -33,9 +53,11 @@ def patch_file(file_path):
             source: polarRangeFeatures,
             zIndex: 100,
             renderBuffer: renderBuffer,
+            opacity: savedPolarOpacity / 100,
             visible: true,
         });
-        layers.push(polarRangeLayer);"""
+        layers.push(polarRangeLayer);
+        setupPolarOpacityControl();"""
 
     if "layers.push(polarRangeLayer)" not in content:
         content, count1 = re.subn(
@@ -47,7 +69,20 @@ def patch_file(file_path):
             print(f"Warning: Could not patch layers.push in {file_path}")
 
     # 3. Replace drawUpintheair with filled polygon styling using tar1090 altitude colors
-    upintheair_replacement = """function getTar1090AltStyle(alt) {
+    upintheair_replacement = """function ensurePolygonConstructor() {
+    if (typeof ol !== 'undefined' && ol.format && ol.format.GeoJSON && (!ol.geom || typeof ol.geom.Polygon !== 'function')) {
+        try {
+            let dummy = new ol.format.GeoJSON().readGeometry({
+                type: 'Polygon',
+                coordinates: [[[0,0],[1,0],[1,1],[0,0]]]
+            });
+            if (!ol.geom) ol.geom = {};
+            ol.geom.Polygon = dummy.constructor;
+        } catch(e) {}
+    }
+}
+
+function getTar1090AltStyle(alt) {
     let h = 20, s = 88, l = 45;
     if (typeof altitudeColor === 'function') {
         try {
@@ -60,17 +95,35 @@ def patch_file(file_path):
         else if (alt >= 9000) h = 85 + (140 - 85) * (alt - 9000) / (11000 - 9000);
         else if (alt >= 2000) h = 32.5 + (85 - 32.5) * (alt - 2000) / (9000 - 2000);
     }
-    let fillAlpha = 0.35;
-    let strokeL = Math.max(10, l - 15);
+    // Fill opacity 0.60; layer-level opacity scales it smoothly from 5% to 80%
+    let strokeL = Math.max(10, l - 10);
     return new ol.style.Style({
         fill: new ol.style.Fill({
-            color: 'hsla(' + Math.round(h) + ', ' + Math.round(s) + '%, ' + Math.round(l) + '%, ' + fillAlpha + ')'
+            color: 'hsla(' + Math.round(h) + ', ' + Math.round(s) + '%, ' + Math.round(l) + '%, 0.60)'
         }),
         stroke: new ol.style.Stroke({
-            color: 'hsla(' + Math.round(h) + ', ' + Math.round(s) + '%, ' + strokeL + '%, 0.90)',
+            color: 'hsla(' + Math.round(h) + ', ' + Math.round(s) + '%, ' + strokeL + '%, 0.95)',
             width: 2.0
         })
     });
+}
+
+function createClosedGeometry(coords, transform) {
+    ensurePolygonConstructor();
+    if (typeof ol.geom.Polygon === 'function') {
+        try {
+            let poly = new ol.geom.Polygon([ coords ]);
+            if (transform) {
+                poly.transform('EPSG:4326', 'EPSG:3857');
+            }
+            return poly;
+        } catch(e) {}
+    }
+    let ls = new ol.geom.LineString(coords);
+    if (transform) {
+        ls.transform('EPSG:4326', 'EPSG:3857');
+    }
+    return ls;
 }
 
 function drawUpintheair() {
@@ -93,9 +146,7 @@ function drawUpintheair() {
         }
         coords.push([ points[0][1], points[0][0] ]);
 
-        let geom = new ol.geom.LineString(coords);
-        geom.transform('EPSG:4326', 'EPSG:3857');
-
+        let geom = createClosedGeometry(coords, true);
         let feature = new ol.Feature(geom);
         feature.setStyle(outlineStyle);
         calcOutlineFeatures.addFeature(feature);
@@ -167,13 +218,42 @@ function drawPolarRangeJson() {
                     coords.push(ol.proj.fromLonLat([ pts[j][1], pts[j][0] ]));
                 }
                 coords.push(ol.proj.fromLonLat([ pts[0][1], pts[0][0] ]));
-                let geom = new ol.geom.LineString(coords);
+
+                let geom = createClosedGeometry(coords, false);
                 let feature = new ol.Feature(geom);
                 feature.setStyle(getTar1090AltStyle(sortedRings[i].alt));
                 polarRangeFeatures.addFeature(feature);
             }
         }
     });
+}
+
+function setupPolarOpacityControl() {
+    let savedVal = localStorage.getItem('polar_range_opacity') || '25';
+    jQuery(document).on('input change', '#polar_opacity_slider', function() {
+        let val = parseInt(this.value);
+        jQuery('#polar_opacity_val').text(val + '%');
+        localStorage.setItem('polar_range_opacity', val);
+        if (polarRangeLayer) {
+            polarRangeLayer.setOpacity(val / 100);
+        }
+    });
+    setInterval(function() {
+        let container = jQuery('.ol-layerswitcher');
+        if (container.length && !jQuery('#polar_opacity_slider').length) {
+            let targetLabel = container.find('label:contains("altitude range")').first();
+            if (targetLabel.length) {
+                targetLabel.parent().after(
+                    '<li id="polar_slider_li" style="padding-left: 24px; margin: 3px 0 6px 0; list-style: none;">' +
+                    '<div style="font-size: 11px; display: flex; align-items: center; gap: 6px; opacity: 0.95; color: #ddd;">' +
+                    '<span>Transparenz:</span>' +
+                    '<input type="range" id="polar_opacity_slider" min="5" max="80" value="' + savedVal + '" style="width: 75px; height: 12px; cursor: pointer; vertical-align: middle;">' +
+                    '<span id="polar_opacity_val" style="min-width: 28px; font-weight: bold;">' + savedVal + '%</span>' +
+                    '</div></li>'
+                );
+            }
+        }
+    }, 1000);
 }
 
 function drawOutlineJson() {
@@ -195,6 +275,12 @@ function drawOutlineJson() {
         f.write(content)
     print(f"Successfully patched {file_path} (Original: {orig_len}b -> Patched: {len(content)}b)!")
     return True
+
+def patch_file(file_path):
+    if "ol-custom" in file_path:
+        return patch_ol_custom(file_path)
+    else:
+        return patch_script_js(file_path)
 
 if __name__ == "__main__":
     for target in sys.argv[1:]:

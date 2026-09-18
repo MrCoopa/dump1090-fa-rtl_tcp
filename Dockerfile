@@ -34,7 +34,7 @@ RUN git clone --depth 1 https://github.com/wiedehopf/tar1090.git /src/tar1090-sr
     git clone --depth 1 https://github.com/wiedehopf/graphs1090.git /src/graphs1090-src && \
     mkdir -p /src/tar1090-web && \
     cp -r /src/tar1090-src/html/* /src/tar1090-web/ && \
-    python3 /src/patch-vrs-outline.py /src/tar1090-web/script.js && \
+    python3 /src/patch-vrs-outline.py /src/tar1090-web/script.js /src/tar1090-web/libs/ol-custom*.js && \
     DB_VERSION=$(cd /src/tar1090-db && git rev-parse --short HEAD 2>/dev/null || echo "db") && \
     TAR_VERSION=$(cd /src/tar1090-src && git rev-parse --short HEAD 2>/dev/null || echo "1.0") && \
     cp -r /src/tar1090-db/db /src/tar1090-web/db-$DB_VERSION && \
