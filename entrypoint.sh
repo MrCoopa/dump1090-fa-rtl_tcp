@@ -82,7 +82,9 @@ if [ "${ENABLE_POLAR_RANGE}" != "0" ] && [ "${ENABLE_POLAR_RANGE}" != "false" ];
         --persist /var/lib/collectd/rrd/polar_range_state.json \
         --hours "${POLAR_RANGE_HOURS:-${RANGE_OUTLINE_HOURS:-24}}" \
         --interval "${POLAR_RANGE_INTERVAL:-2.0}" \
-        --min-points "${POLAR_RANGE_MIN_POINTS:-2}" &
+        --min-points "${POLAR_RANGE_MIN_POINTS:-2}" \
+        --min-messages "${POLAR_RANGE_MIN_MESSAGES:-3}" \
+        --min-nic "${POLAR_RANGE_MIN_NIC:-1}" &
 fi
 
 # Configure and start graphs1090 (collectd + rrdtool)
@@ -330,6 +332,10 @@ else
         if [ -n "$LAT" ]; then READSB_ARGS="$READSB_ARGS --lat $LAT"; fi
         if [ -n "$LON" ]; then READSB_ARGS="$READSB_ARGS --lon $LON"; fi
         if [ -n "$MAX_RANGE" ]; then READSB_ARGS="$READSB_ARGS --max-range $MAX_RANGE"; fi
+        if [ "$STRICT_CRC" = "1" ] || [ "$STRICT_CRC" = "true" ] || [ "$FIX" = "0" ] || [ "$FIX" = "false" ]; then
+            echo "[adsb-container] Strict CRC validation enabled: disabling error correction (--no-fix)"
+            READSB_ARGS="$READSB_ARGS --no-fix"
+        fi
 
         READSB_ARGS="$READSB_ARGS $@"
         echo "[adsb-container] Starting readsb in network mode: /usr/local/bin/readsb $READSB_ARGS"
@@ -353,7 +359,8 @@ else
         if [ -n "$LON" ]; then READSB_ARGS="$READSB_ARGS --lon $LON"; fi
         if [ -n "$MAX_RANGE" ]; then READSB_ARGS="$READSB_ARGS --max-range $MAX_RANGE"; fi
 
-        if [ "$FIX" = "0" ] || [ "$FIX" = "false" ]; then
+        if [ "$STRICT_CRC" = "1" ] || [ "$STRICT_CRC" = "true" ] || [ "$FIX" = "0" ] || [ "$FIX" = "false" ]; then
+            echo "[adsb-container] Strict CRC validation enabled: disabling error correction (--no-fix)"
             READSB_ARGS="$READSB_ARGS --no-fix"
         fi
 

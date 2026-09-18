@@ -67,7 +67,7 @@ def destination_point(lat, lon, dist_nm, bearing_deg):
     return (round(math.degrees(lat2), 6), round(math.degrees(lon2), 6))
 
 class PolarRangeCollector:
-    def __init__(self, data_dir, output_file, persist_file, hours=24.0, lat=None, lon=None, interval=2.0, min_points=2):
+    def __init__(self, data_dir, output_file, persist_file, hours=24.0, lat=None, lon=None, interval=2.0, min_points=2, min_messages=3, min_nic=1):
         self.data_dir = data_dir
         self.output_file = output_file
         self.persist_file = persist_file
@@ -77,10 +77,12 @@ class PolarRangeCollector:
         self.site_lon = lon
         self.interval = float(interval)
         self.min_points = max(1, int(min_points))
+        self.min_messages = max(1, int(min_messages))
+        self.min_nic = max(0, int(min_nic))
         self.running = True
 
         # Track history for consecutive measurement validation:
-        # self.track_history[hex] = {"lat": lat, "lon": lon, "time": epoch, "consecutive": int}
+        # self.track_history[hex] = {"lat": lat, "lon": lon, "time": epoch, "messages": int, "seen_pos": float, "consecutive": int}
         self.track_history = {}
         self.last_track_prune = 0.0
 
@@ -227,9 +229,29 @@ class PolarRangeCollector:
             if dist < 0.1 or dist > 400.0:
                 continue
 
-            # Verify consecutive plausible measurement points to eliminate corrupted single packets
+            # --- Message Integrity & CRC Quality Checks ---
+            messages = p.get("messages")
+            seen_pos = p.get("seen_pos")
+            nic = p.get("nic")
+
+            # 1. Total message threshold: single-packet CRC false-positives have messages <= 2
+            if messages is not None and messages < self.min_messages:
+                continue
+
+            # 2. Navigation Integrity Category (NIC): DO-260B NIC 0 means uncontained/unverified position (noise)
+            if nic is not None and nic < self.min_nic:
+                continue
+
+            # --- Consecutive Plausible Measurement Points & Anti-Stale Filter ---
             prev = self.track_history.get(hex_code)
             if prev is not None:
+                # Anti-Stale Check: If message count is identical,
+                # this is simply the same old packet lingering in aircraft.json over multiple polls!
+                if messages is not None and prev.get("messages") is not None:
+                    if messages == prev["messages"]:
+                        # No new packet received yet; keep existing state and do not count again
+                        continue
+
                 dt = now - prev["time"]
                 if 0.1 <= dt <= 30.0:
                     step_nm = haversine_distance_nm(prev["lat"], prev["lon"], lat2, lon2)
@@ -248,6 +270,8 @@ class PolarRangeCollector:
                 "lat": lat2,
                 "lon": lon2,
                 "time": now,
+                "messages": messages,
+                "seen_pos": seen_pos,
                 "consecutive": consecutive
             }
 
@@ -403,24 +427,29 @@ def test_collector():
             min_points=2
         )
 
-        # Generate fake aircraft at various altitudes and bearings
+        # Generate fake aircraft at various altitudes and bearings with realistic messages and nic
         aircraft = []
         for deg in range(0, 360, 15):
             # Low altitude (5,000 ft) at 30 NM
             p_lat, p_lon = destination_point(site_lat, site_lon, 30.0, deg)
-            aircraft.append({"hex": f"low_{deg:03d}", "lat": p_lat, "lon": p_lon, "alt_baro": 4500})
+            aircraft.append({"hex": f"low_{deg:03d}", "lat": p_lat, "lon": p_lon, "alt_baro": 4500, "messages": 10, "nic": 8})
 
             # Mid altitude (25,000 ft) at 90 NM
             p_lat2, p_lon2 = destination_point(site_lat, site_lon, 90.0, deg)
-            aircraft.append({"hex": f"mid_{deg:03d}", "lat": p_lat2, "lon": p_lon2, "alt_baro": 25000})
+            aircraft.append({"hex": f"mid_{deg:03d}", "lat": p_lat2, "lon": p_lon2, "alt_baro": 25000, "messages": 15, "nic": 8})
 
             # High altitude (38,000 ft) at 160 NM
             p_lat3, p_lon3 = destination_point(site_lat, site_lon, 160.0, deg)
-            aircraft.append({"hex": f"hi_{deg:03d}", "lat": p_lat3, "lon": p_lon3, "alt_baro": 38000})
+            aircraft.append({"hex": f"hi_{deg:03d}", "lat": p_lat3, "lon": p_lon3, "alt_baro": 38000, "messages": 20, "nic": 8})
 
-        # Inject a corrupted ghost packet with a random hex at 350 NM
-        ghost_lat, ghost_lon = destination_point(site_lat, site_lon, 350.0, 45)
-        aircraft.append({"hex": "ghost_bad_01", "lat": ghost_lat, "lon": ghost_lon, "alt_baro": 35000})
+        # Inject corrupted ghost packets:
+        # Ghost 1: single packet (messages=1) at 350 NM
+        ghost_lat1, ghost_lon1 = destination_point(site_lat, site_lon, 350.0, 45)
+        aircraft.append({"hex": "ghost_bad_01", "lat": ghost_lat1, "lon": ghost_lon1, "alt_baro": 35000, "messages": 1, "nic": 8})
+
+        # Ghost 2: zero navigation integrity (nic=0) at 320 NM
+        ghost_lat2, ghost_lon2 = destination_point(site_lat, site_lon, 320.0, 90)
+        aircraft.append({"hex": "ghost_bad_02", "lat": ghost_lat2, "lon": ghost_lon2, "alt_baro": 32000, "messages": 50, "nic": 0})
 
         ac_file = os.path.join(data_dir, "aircraft.json")
         t0 = time.time()
@@ -431,15 +460,20 @@ def test_collector():
         updated1 = collector.update_aircraft(t0)
         assert updated1 == 0, f"Expected 0 grid updates on 1st report, got {updated1}"
 
-        # Second pass (2s later): valid aircraft send 2nd consecutive point -> grid expands!
-        # Corrupted ghost packet does NOT send a 2nd point.
+        # Test Anti-Stale check: same exact file polled again without message increment
+        updated_stale = collector.update_aircraft(t0 + 1.0)
+        assert updated_stale == 0, "Stale aircraft.json without new messages must NOT increment consecutive count!"
+
+        # Second pass (2s later): valid aircraft send NEW messages -> grid expands!
         t1 = t0 + 2.0
         aircraft_pass2 = []
         for p in aircraft:
-            if p["hex"] == "ghost_bad_01":
-                continue  # Ghost packet was a one-off error!
-            # Move plane slightly (e.g. 0.2 NM)
-            aircraft_pass2.append(p)
+            if p["hex"] in ("ghost_bad_01", "ghost_bad_02"):
+                continue  # Ghosts do not persist
+            # Real aircraft increments message count
+            p_new = dict(p)
+            p_new["messages"] += 5
+            aircraft_pass2.append(p_new)
 
         with open(ac_file, "w", encoding="utf-8") as f:
             json.dump({"now": t1, "aircraft": aircraft_pass2}, f)
@@ -447,10 +481,12 @@ def test_collector():
         updated2 = collector.update_aircraft(t1)
         assert updated2 > 0, "Expected grid updates on 2nd consecutive report"
 
-        # Verify ghost packet did not contaminate bearing 45 high altitude
+        # Verify ghost packets did not contaminate the grid
         bracket_high = 4  # 30k+ ft
         entry_b45 = collector.grid[bracket_high][45]
-        assert entry_b45 is None or entry_b45["dist"] < 250.0, f"Ghost packet leaked into grid: {entry_b45}"
+        assert entry_b45 is None or entry_b45["dist"] < 250.0, f"Ghost 1 leaked into grid: {entry_b45}"
+        entry_b90 = collector.grid[bracket_high][90]
+        assert entry_b90 is None or entry_b90["dist"] < 250.0, f"Ghost 2 leaked into grid: {entry_b90}"
 
         res = collector.prune_and_build_json(t1)
         collector.write_output_json(res)
@@ -461,7 +497,7 @@ def test_collector():
         with open(out_file, "r") as f:
             j = json.load(f)
             assert len(j.get("rings", [])) >= 3, f"Expected at least 3 rings, got {len(j.get('rings', []))}"
-            print(f"Self-test SUCCESS! Validated {len(j['rings'])} rings and verified single ghost packets are 100% filtered out!")
+            print(f"Self-test SUCCESS! Validated {len(j['rings'])} rings and verified CRC/NIC/stale packet filtering!")
 
     finally:
         shutil.rmtree(tmpdir)
@@ -474,6 +510,8 @@ if __name__ == "__main__":
     parser.add_argument("--hours", type=float, default=float(os.environ.get("POLAR_RANGE_HOURS", "24.0")), help="Rolling hours window")
     parser.add_argument("--interval", type=float, default=2.0, help="Polling interval in seconds")
     parser.add_argument("--min-points", type=int, default=int(os.environ.get("POLAR_RANGE_MIN_POINTS", "2")), help="Minimum consecutive plausible reports before expanding outline")
+    parser.add_argument("--min-messages", type=int, default=int(os.environ.get("POLAR_RANGE_MIN_MESSAGES", "3")), help="Minimum message count required (rejects 1-packet CRC false-positives)")
+    parser.add_argument("--min-nic", type=int, default=int(os.environ.get("POLAR_RANGE_MIN_NIC", "1")), help="Minimum Navigation Integrity Category (rejects uncontained noise)")
     parser.add_argument("--lat", type=float, default=None, help="Receiver latitude")
     parser.add_argument("--lon", type=float, default=None, help="Receiver longitude")
     parser.add_argument("--test", action="store_true", help="Run self-test and exit")
@@ -492,7 +530,9 @@ if __name__ == "__main__":
         lat=args.lat,
         lon=args.lon,
         interval=args.interval,
-        min_points=args.min_points
+        min_points=args.min_points,
+        min_messages=args.min_messages,
+        min_nic=args.min_nic
     )
 
     def handle_signal(sig, frame):

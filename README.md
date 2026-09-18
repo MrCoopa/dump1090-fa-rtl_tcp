@@ -166,7 +166,8 @@ services:
 | `ENABLE_AGC` | `0` | Enable RTL2832U digital automatic gain control (`1` or `true`). |
 | `PPM` | `0` | Frequency correction for tuner crystal oscillator in PPM. |
 | `FREQ` | `1090000000` | Center frequency in Hz (default: 1090 MHz). |
-| `AGGRESSIVE` | `true` | Enable 2-bit CRC error correction (`--fix-2bit`). Increases aircraft detection at marginal signal levels. |
+| `AGGRESSIVE` | `false` | Enable 2-bit CRC error correction (`--fix-2bit`). Note: 2-bit correction increases the chance of ghost aircraft. |
+| `STRICT_CRC` | `false` | Enforce 100% strict CRC validation (`--no-fix`). Disables bit repair, completely eliminating ghost planes and false CRC matches. |
 
 #### 3. Station Location & Maximum Range
 | Variable | Default | Description |
@@ -176,6 +177,9 @@ services:
 | `SITE_NAME` | `My-Station` | Station label shown on the tar1090 map. |
 | `MAX_RANGE` | `300` | Maximum plausible reception range in nautical miles (NM). Targets beyond this threshold are discarded. |
 | `RANGE_OUTLINE_HOURS` | `24` | Duration in hours for which readsb accumulates reception data to draw the real-world range outline polygon. |
+| `POLAR_RANGE_MIN_POINTS` | `2` | Minimum consecutive plausible position updates required before expanding the polar outline. |
+| `POLAR_RANGE_MIN_MESSAGES` | `3` | Minimum total messages required from an aircraft (rejects 1-packet CRC false-positives). |
+| `POLAR_RANGE_MIN_NIC` | `1` | Minimum Navigation Integrity Category (rejects uncontained/garbled noise with NIC 0). |
 
 #### 4. HeyWhatsThat (Terrain Horizon & Line of Sight)
 | Variable | Default | Description |
@@ -491,7 +495,8 @@ services:
 | `ENABLE_AGC` | `0` | Aktiviert die digitale automatische Verstärkungsregelung des RTL2832U (`1` oder `true`). |
 | `PPM` | `0` | Frequenzkorrektur des Oszillators in PPM. |
 | `FREQ` | `1090000000` | Empfangsfrequenz in Hz (Standard: 1090 MHz). |
-| `AGGRESSIVE` | `true` | Aktiviert die 2-Bit CRC-Fehlerkorrektur für Mode-S Nachrichten (`--fix-2bit`). Erhöht die Anzahl erkannter Flugzeuge bei schwachen Signalen. |
+| `AGGRESSIVE` | `false` | Aktiviert die 2-Bit CRC-Fehlerkorrektur (`--fix-2bit`). Hinweis: Erhöht bei schwachen Signalen das Risiko von Geisterflugzeugen durch CRC-Kollisionen. |
+| `STRICT_CRC` | `false` | Erzwingt 100% strikte CRC-Prüfung (`--no-fix`). Deaktiviert Bit-Reparaturen und eliminiert Geisterflugzeuge vollständig. |
 
 #### 3. Stationsstandort & Reichweite
 | Variable | Standard | Beschreibung |
@@ -501,6 +506,9 @@ services:
 | `SITE_NAME` | `Meine-Station` | Anzeigename deiner Empfangsstation auf der tar1090-Karte. |
 | `MAX_RANGE` | `300` | Maximale Reichweitengrenze in nautischen Meilen (NM). Signale außerhalb werden verworfen. |
 | `RANGE_OUTLINE_HOURS` | `24` | Zeitfenster in Stunden, für das readsb das reale Reichweiten-Polygon aufzeichnet und in tar1090 anzeigt. |
+| `POLAR_RANGE_MIN_POINTS` | `2` | Mindestanzahl aufeinanderfolgender plausibler Positionsmeldungen vor Erweiterung des Reichweiten-Polygons. |
+| `POLAR_RANGE_MIN_MESSAGES` | `3` | Mindestanzahl empfangener Nachrichten von einem Flugzeug (filtert 1-Paket CRC-Fehltreffer). |
+| `POLAR_RANGE_MIN_NIC` | `1` | Mindest-Navigationsintegrität (NIC). NIC 0 (unzuverlässiges Rauschen/Glitches) wird ignoriert. |
 
 #### 4. HeyWhatsThat (Geländeüberdeckung & Sichtlinien)
 | Variable | Standard | Beschreibung |
