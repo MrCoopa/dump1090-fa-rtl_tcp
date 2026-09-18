@@ -216,10 +216,17 @@ services:
 
 ### 🗺 Range Analysis (Rangemap & HeyWhatsThat)
 
-#### Real-World Reception Horizon (Range Outline)
-Using `readsb`, the container continuously records azimuth and maximum distance of all valid position reports.
-* The resulting polygon is dynamically overlaid on the **tar1090** map.
-* Configure the rolling observation window using `RANGE_OUTLINE_HOURS=24` (or `48`, `168` for a full week).
+#### Real-World Reception Horizon & Polar Plot by Altitude (VRS-Style)
+The container continuously records the azimuth and maximum distance of all received aircraft:
+* **Overall Range Outline:** By default, `readsb` generates a single perimeter polygon across all altitudes (`outline.json`).
+* **Multi-Layer Polar Plot by Altitude:** When `ENABLE_POLAR_RANGE=true` (enabled by default), an integrated collector tracks aircraft positions binned into 4 altitude layers:
+  * 🟢 **0 – 9,999 ft** (Low altitude & approach)
+  * 🟢 **10,000 – 19,999 ft** (Mid-low cruise)
+  * 🔵 / 🟣 **20,000 – 29,999 ft** (Mid-high cruise)
+  * 🟣 / 🔴 **30,000+ ft** (High cruise)
+  These 4 layers are dynamically rendered on the **tar1090** map using **tar1090's official altitude color scale** (`ColorByAlt`), overlaying outer layers smoothly under inner layers.
+* **Persistence:** Polar range points are saved to `./graphs1090-data/polar_range_state.json` so your historical coverage survives container reboots.
+* **Rolling Window:** Configurable via `POLAR_RANGE_HOURS=24` (or `RANGE_OUTLINE_HOURS=24`).
 
 #### Theoretical Terrain Coverage (HeyWhatsThat)
 To evaluate how mountains, buildings, or local topology obstruct your antenna:
@@ -477,10 +484,17 @@ services:
 <a name="-reichweitenanalyse-rangemap--heywhatsthat-de"></a>
 ### 🗺 Reichweitenanalyse (Rangemap & HeyWhatsThat)
 
-#### Reale Empfangsreichweite (Range Outline)
-Durch `readsb` zeichnet der Container kontinuierlich auf, in welcher Richtung und Entfernung Flugzeuge tatsächlich empfangen wurden.
-* In **tar1090** wird dieses Polygon automatisch als farbige Konturlinie dargestellt.
-* Das Zeitfenster lässt sich über `RANGE_OUTLINE_HOURS=24` (oder z. B. `48`, `168` für eine Woche) festlegen.
+#### Reale Empfangsreichweite & Höhen-Polarplot (VRS-Style)
+Der Container zeichnet kontinuierlich auf, in welcher Richtung und Entfernung Flugzeuge tatsächlich empfangen wurden:
+* **Gesamt-Kontur:** Standardmäßig erzeugt `readsb` ein einzelnes Außen-Polygon (`outline.json`) über alle Höhen.
+* **4-Schichten Höhenplot nach Vorbild Virtual Radar Server (VRS):** Mit `ENABLE_POLAR_RANGE=true` (standardmäßig aktiv) ordnet ein Hintergrund-Collector alle empfangenen Flugzeuge 4 Höhenbändern zu:
+  * 🟢 **0 – 9.999 ft** (Boden- & Nahbereich)
+  * 🟢 **10.000 – 19.999 ft** (Niedrige Reiseflughöhe)
+  * 🔵 / 🟣 **20.000 – 29.999 ft** (Mittlere Reiseflughöhe)
+  * 🟣 / 🔴 **30.000+ ft** (Hohe Reiseflughöhe)
+  Diese 4 Schichten werden in der **tar1090-Karte** mit der **originalen tar1090-Höhenfarbskala** (`ColorByAlt`) als halbtransparente Polygone übereinandergelegt.
+* **Persistenz:** Die Daten werden in `./graphs1090-data/polar_range_state.json` gespeichert und bleiben bei Container-Neustarts erhalten.
+* **Zeitfenster:** Anpassbar über `POLAR_RANGE_HOURS=24` (oder `RANGE_OUTLINE_HOURS=24`).
 
 #### Theoretische Geländereichweite (HeyWhatsThat)
 1. Erstelle auf [heywhatsthat.com](http://www.heywhatsthat.com/) ein Panorama an deinem Antennenstandort mit deiner Antennenhöhe über Grund.

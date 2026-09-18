@@ -27,8 +27,10 @@ services:
       - LON=${LON:-13.4050}
       - SITE_NAME=${SITE_NAME:-Meine-Station}
 
-      # Rangemap: Tatsächliche Reichweite (Range Outline)
+      # Rangemap: Tatsächliche Reichweite (Range Outline & Höhen-Polarplot)
       - RANGE_OUTLINE_HOURS=24 # Zeitfenster für den Plot der Maximalreichweite in Stunden
+      - ENABLE_POLAR_RANGE=true # 4-Schichten Höhenplot (0-10k, 10-20k, 20-30k, 30k+ ft in tar1090-Farben)
+      - POLAR_RANGE_HOURS=24 # Zeitfenster für den Höhen-Reichweitenplot in Stunden
 
       # Rangemap: Theoretische Geländereichweite (HeyWhatsThat Panorama-ID)
       # - HEYWHATSTHAT_ID=xxxxxx   # Optional: Eigene Panorama-ID von heywhatsthat.com eintragen

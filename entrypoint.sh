@@ -73,6 +73,17 @@ if [ "${ENABLE_TAR1090}" != "0" ] && [ "${ENABLE_TAR1090}" != "false" ]; then
     /usr/local/bin/tar1090.sh /run/tar1090 /run/adsb-data &
 fi
 
+# Start polar range altitude collector daemon (actual aircraft reception by altitude)
+if [ "${ENABLE_POLAR_RANGE}" != "0" ] && [ "${ENABLE_POLAR_RANGE}" != "false" ]; then
+    echo "[adsb-container] Starting polar range altitude collector daemon..."
+    python3 /usr/local/bin/polar_range.py \
+        --data-dir /run/adsb-data \
+        --output /run/adsb-data/polar_range.json \
+        --persist /var/lib/collectd/rrd/polar_range_state.json \
+        --hours "${POLAR_RANGE_HOURS:-${RANGE_OUTLINE_HOURS:-24}}" \
+        --interval "${POLAR_RANGE_INTERVAL:-2.0}" &
+fi
+
 # Configure and start graphs1090 (collectd + rrdtool)
 if [ "${ENABLE_GRAPHS1090}" != "0" ] && [ "${ENABLE_GRAPHS1090}" != "false" ]; then
     echo "[adsb-container] Configuring collectd for graphs1090..."
