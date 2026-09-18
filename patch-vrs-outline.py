@@ -93,7 +93,7 @@ function drawUpintheair() {
         }
         coords.push([ points[0][1], points[0][0] ]);
 
-        let geom = new ol.geom.Polygon([ coords ]);
+        let geom = new ol.geom.LineString(coords);
         geom.transform('EPSG:4326', 'EPSG:3857');
 
         let feature = new ol.Feature(geom);
@@ -167,7 +167,7 @@ function drawPolarRangeJson() {
                     coords.push(ol.proj.fromLonLat([ pts[j][1], pts[j][0] ]));
                 }
                 coords.push(ol.proj.fromLonLat([ pts[0][1], pts[0][0] ]));
-                let geom = new ol.geom.Polygon([ coords ]);
+                let geom = new ol.geom.LineString(coords);
                 let feature = new ol.Feature(geom);
                 feature.setStyle(getTar1090AltStyle(sortedRings[i].alt));
                 polarRangeFeatures.addFeature(feature);
