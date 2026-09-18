@@ -8,7 +8,34 @@ def patch_file(file_path):
         print(f"Warning: function drawOutlineJson not found in {file_path}")
         return False
 
-    replacement = """function getTar1090AltStyle(alt) {
+    # 1. Insert polarRange layer registration into layers array alongside actualOutline
+    layer_patch = """        layers.push(actualOutline.layer);
+
+        polarRangeLayer = new ol.layer.Vector({
+            name: 'polarRangeAltitude',
+            type: 'overlay',
+            title: 'altitude range rings (by flight level)',
+            source: polarRangeFeatures,
+            zIndex: 100,
+            renderBuffer: renderBuffer,
+            visible: true,
+        });
+        layers.push(polarRangeLayer);"""
+
+    if "layers.push(polarRangeLayer)" not in content:
+        content, count1 = re.subn(
+            r'layers\.push\(actualOutline\.layer\);',
+            layer_patch,
+            content
+        )
+        if count1 == 0:
+            print(f"Warning: Could not patch layers.push in {file_path}")
+
+    # 2. Add style helper, drawUpintheair, and split drawOutlineJson into classic and polar
+    outline_patch = """let polarRangeFeatures = new ol.source.Vector();
+let polarRangeLayer = null;
+
+function getTar1090AltStyle(alt) {
     let h = 20, s = 88, l = 45;
     if (typeof altitudeColor === 'function') {
         try {
@@ -63,25 +90,7 @@ function drawUpintheair() {
     }
 }
 
-function drawPolarPolygons(rings) {
-    actualOutline.features.clear();
-    let sortedRings = rings.slice().sort((a, b) => b.alt - a.alt);
-    for (let i = 0; i < sortedRings.length; ++i) {
-        let pts = sortedRings[i].points;
-        if (!pts || pts.length < 3) continue;
-        let coords = [];
-        for (let j = 0; j < pts.length; ++j) {
-            coords.push(ol.proj.fromLonLat([ pts[j][1], pts[j][0] ]));
-        }
-        coords.push(ol.proj.fromLonLat([ pts[0][1], pts[0][0] ]));
-        let geom = new ol.geom.Polygon([ coords ]);
-        let feature = new ol.Feature(geom);
-        feature.setStyle(getTar1090AltStyle(sortedRings[i].alt));
-        actualOutline.features.addFeature(feature);
-    }
-}
-
-function fallbackOutlineJson() {
+function drawClassicOutlineJson() {
     let request = jQuery.ajax({ url: actualOutline.url,
         cache: false,
         timeout: actualOutline.refresh,
@@ -118,7 +127,7 @@ function fallbackOutlineJson() {
     });
 }
 
-function drawOutlineJson() {
+function drawPolarRangeJson() {
     jQuery.ajax({
         url: 'data/polar_range.json',
         cache: false,
@@ -126,23 +135,37 @@ function drawOutlineJson() {
         dataType: 'json'
     }).done(function(data) {
         if (data && data.rings && data.rings.length > 0) {
-            drawPolarPolygons(data.rings);
-        } else {
-            fallbackOutlineJson();
+            polarRangeFeatures.clear();
+            let sortedRings = data.rings.slice().sort((a, b) => b.alt - a.alt);
+            for (let i = 0; i < sortedRings.length; ++i) {
+                let pts = sortedRings[i].points;
+                if (!pts || pts.length < 3) continue;
+                let coords = [];
+                for (let j = 0; j < pts.length; ++j) {
+                    coords.push(ol.proj.fromLonLat([ pts[j][1], pts[j][0] ]));
+                }
+                coords.push(ol.proj.fromLonLat([ pts[0][1], pts[0][0] ]));
+                let geom = new ol.geom.Polygon([ coords ]);
+                let feature = new ol.Feature(geom);
+                feature.setStyle(getTar1090AltStyle(sortedRings[i].alt));
+                polarRangeFeatures.addFeature(feature);
+            }
         }
-    }).fail(function() {
-        fallbackOutlineJson();
     });
+}
+
+function drawOutlineJson() {
+    drawClassicOutlineJson();
+    drawPolarRangeJson();
 }"""
 
-    # Replace drawUpintheair (if present) through drawOutlineJson
-    pattern = r'(function drawUpintheair\(\)\s*\{[\s\S]*?\n\}\n\n)?function drawOutlineJson\(\)\s*\{[\s\S]*?\n\}\n'
-    new_content, count = re.subn(pattern, replacement + '\n', content)
+    pattern = r'(function drawUpintheair\(\)\s*\{[\s\S]*?\n\}\n\n)?(let polarRangeFeatures[\s\S]*?\n\n)?function drawOutlineJson\(\)\s*\{[\s\S]*?\n\}\n'
+    content, count2 = re.subn(pattern, outline_patch + '\n', content)
 
-    if count > 0:
+    if count2 > 0:
         with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(new_content)
-        print(f"Successfully patched {file_path} with tar1090 altitude color scale & polar range support!")
+            f.write(content)
+        print(f"Successfully patched {file_path} with separate overlay layers and tar1090 altitude colors!")
         return True
     else:
         print(f"Pattern matching drawOutlineJson failed in {file_path}")
